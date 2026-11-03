@@ -43,4 +43,13 @@ anchor resolves, all local assets exist and are referenced relatively, `robots.t
 
 **Publish.** Static homepage published to GitHub Pages from `main` (source: branch `main`,
 path `/`, `.nojekyll`). The Worker is not deployed: no Cloudflare account or credentials were
-available in this environment.
+available in this environment. Commit `9e24b9b`, Pages build status `built` for that commit.
+
+**Production verification.** `https://spuds0588.github.io/File-Handoff-Service-FHS-/` returns
+200 `text/html`; `assets/styles.css` returns 200 `text/css`; `favicon.svg`, `robots.txt`,
+`sitemap.xml`, and `llms.txt` all return 200 with the expected content types. The live page has
+the intended title, description, and canonical; the JSON-LD block parses in the browser with
+SoftwareApplication, WebSite, HowTo, and FAQPage (7 questions); the stylesheet applies; no
+console errors, no failed requests, no horizontal overflow. The copy button on the agent prompt
+switches to “Copied”. The Worker itself has no public deployment yet, so its API was verified
+only against local `wrangler dev`.
