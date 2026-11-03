@@ -151,6 +151,22 @@ try {
     assert.equal(body.limits.maxPayloadBytes, MAX_PAYLOAD);
     assert.equal(body.limits.chunkSizeBytes, CHUNK);
     assert.equal(body.limits.ttlSeconds, TTL);
+    assert.equal(body.filters.allowedContentTypes, "any");
+    assert.equal(body.filters.allowedDomains, "any");
+    assert.equal(response.headers.get("access-control-allow-origin"), "*");
+  });
+
+  await check("default CORS is wildcard and answers preflight", async () => {
+    const response = await fetch(`${BASE}/upload`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://anywhere.test",
+        "Access-Control-Request-Method": "POST",
+      },
+    });
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get("access-control-allow-origin"), "*");
+    assert.match(response.headers.get("access-control-allow-methods") || "", /POST/);
   });
 
   await check("upload rejects a missing or wrong bearer token", async () => {

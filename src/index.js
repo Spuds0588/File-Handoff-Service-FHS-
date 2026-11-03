@@ -46,6 +46,9 @@ const COMMON_HEADERS = {
   "Referrer-Policy": "no-referrer",
 };
 
+const CORS_METHODS = "GET, POST, OPTIONS";
+const CORS_HEADERS = "Authorization, Content-Type";
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
@@ -54,6 +57,115 @@ function intVar(raw, fallback, min, max) {
   const value = Number.parseInt(raw ?? "", 10);
   if (!Number.isFinite(value)) return fallback;
   return Math.min(Math.max(value, min), max);
+}
+
+/** Split a comma-separated environment value into normalized entries. */
+function parseList(raw) {
+  return String(raw ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** Accept "app.example.com", "https://app.example.com/path", or "*.example.com". */
+function normalizeDomainEntry(entry) {
+  let value = String(entry || "").trim().toLowerCase();
+  if (!value) return "";
+  if (value === "*") return "*";
+  if (value.includes("://")) {
+    try {
+      return new URL(value).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+  value = value.split("/")[0].split(":")[0];
+  return value.replace(/\.$/, "");
+}
+
+function matchesContentType(contentType, allowed) {
+  if (allowed.length === 0) return true;
+  const type = String(contentType || "application/octet-stream")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+  return allowed.some((rule) => {
+    if (rule === "*" || rule === "*/*") return true;
+    if (rule.endsWith("/*")) return type.startsWith(rule.slice(0, -1));
+    return type === rule;
+  });
+}
+
+function hostnameMatches(hostname, rule) {
+  if (!hostname) return false;
+  if (rule === "*") return true;
+  if (rule.startsWith("*.")) {
+    const suffix = rule.slice(1);
+    return hostname.endsWith(suffix) && hostname.length > suffix.length;
+  }
+  return hostname === rule;
+}
+
+function requestSource(request) {
+  const origin = request.headers.get("Origin");
+  if (origin) {
+    if (origin === "null") return { origin: "null", hostname: "" };
+    try {
+      const url = new URL(origin);
+      return { origin: url.origin, hostname: url.hostname.toLowerCase() };
+    } catch {
+      return { origin, hostname: "" };
+    }
+  }
+
+  const referer = request.headers.get("Referer");
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      return { origin: url.origin, hostname: url.hostname.toLowerCase() };
+    } catch {
+      return { origin: referer, hostname: "" };
+    }
+  }
+
+  return null;
+}
+
+function resolveCors(request, cfg) {
+  if (cfg.allowedDomains.length === 0) return { origin: "*", blocked: false };
+
+  const source = requestSource(request);
+  if (!source) return { origin: null, blocked: false };
+
+  const allowed = cfg.allowedDomains.some((rule) => hostnameMatches(source.hostname, rule));
+  return { origin: allowed ? source.origin : null, blocked: !allowed };
+}
+
+function withCors(response, cors) {
+  if (!cors.origin) return response;
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", cors.origin);
+  if (cors.origin !== "*") headers.append("Vary", "Origin");
+  headers.set("Access-Control-Expose-Headers", "X-Handoff-Status, Content-Disposition");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function preflight(cors) {
+  const headers = new Headers({
+    ...COMMON_HEADERS,
+    "Access-Control-Allow-Methods": CORS_METHODS,
+    "Access-Control-Allow-Headers": CORS_HEADERS,
+    "Access-Control-Max-Age": "86400",
+  });
+  if (cors.origin) {
+    headers.set("Access-Control-Allow-Origin", cors.origin);
+    if (cors.origin !== "*") headers.append("Vary", "Origin");
+  }
+  return new Response(null, { status: 204, headers });
 }
 
 function readConfig(env) {
@@ -73,6 +185,10 @@ function readConfig(env) {
       MIN_CHUNK_BYTES,
       MAX_CHUNK_BYTES,
     ),
+    allowedContentTypes: parseList(env?.ALLOWED_CONTENT_TYPES),
+    allowedDomains: parseList(env?.ALLOWED_DOMAINS)
+      .map(normalizeDomainEntry)
+      .filter(Boolean),
   };
 }
 
@@ -148,6 +264,10 @@ function descriptor(origin, cfg) {
       chunkSizeBytes: cfg.chunkSizeBytes,
       ttlSeconds: cfg.ttlSeconds,
     },
+    filters: {
+      allowedContentTypes: cfg.allowedContentTypes.length ? cfg.allowedContentTypes : "any",
+      allowedDomains: cfg.allowedDomains.length ? cfg.allowedDomains : "any",
+    },
     notes: [
       "Payloads are held only in Durable Object memory and dropped on first read or TTL expiry.",
       "A handoff URL is single-use: the second GET returns HTTP 410.",
@@ -183,8 +303,17 @@ async function handleUpload(request, env, cfg, origin) {
     );
   }
 
-  const token = crypto.randomUUID();
   const contentType = readContentType(request);
+  if (!matchesContentType(contentType, cfg.allowedContentTypes)) {
+    return json(
+      {
+        error: `Content type not allowed. Allowed: ${cfg.allowedContentTypes.join(", ")}.`,
+      },
+      415,
+    );
+  }
+
+  const token = crypto.randomUUID();
   const storedChunks = [];
 
   let chunkIndex = 0;
@@ -342,34 +471,47 @@ async function handleRetrieve(token, env) {
 /* Router                                                              */
 /* ------------------------------------------------------------------ */
 
+async function route(request, env, cfg, url) {
+  if (url.pathname === "/" || url.pathname === "") {
+    if (request.method !== "GET") return methodNotAllowed("GET");
+    return json(descriptor(url.origin, cfg));
+  }
+
+  if (url.pathname === "/upload") {
+    if (request.method !== "POST") return methodNotAllowed("POST");
+    return handleUpload(request, env, cfg, url.origin);
+  }
+
+  if (url.pathname.startsWith("/retrieve/")) {
+    const token = url.pathname.slice("/retrieve/".length);
+    if (request.method !== "GET") return methodNotAllowed("GET");
+    return handleRetrieve(token, env);
+  }
+
+  return json({ error: "Not found.", routes: ROUTES }, 404);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const cfg = readConfig(env);
+    const cors = resolveCors(request, cfg);
 
     console.log(`[FHS][ROUTER] ${request.method} ${url.pathname}`);
 
+    if (cors.blocked) {
+      console.warn("[FHS][CORS] blocked request from a disallowed origin");
+      return json({ error: "Origin not allowed." }, 403);
+    }
+
+    if (request.method === "OPTIONS") return preflight(cors);
+
     try {
-      if (url.pathname === "/" || url.pathname === "") {
-        if (request.method !== "GET") return methodNotAllowed("GET");
-        return json(descriptor(url.origin, cfg));
-      }
-
-      if (url.pathname === "/upload") {
-        if (request.method !== "POST") return methodNotAllowed("POST");
-        return await handleUpload(request, env, cfg, url.origin);
-      }
-
-      if (url.pathname.startsWith("/retrieve/")) {
-        const token = url.pathname.slice("/retrieve/".length);
-        if (request.method !== "GET") return methodNotAllowed("GET");
-        return await handleRetrieve(token, env);
-      }
-
-      return json({ error: "Not found.", routes: ROUTES }, 404);
+      const response = await route(request, env, cfg, url);
+      return withCors(response, cors);
     } catch (error) {
       console.error(`[FHS][ERROR] ${request.method} ${url.pathname}: ${error?.stack || error}`);
-      return json({ error: "Internal error." }, 500);
+      return withCors(json({ error: "Internal error." }, 500), cors);
     }
   },
 };

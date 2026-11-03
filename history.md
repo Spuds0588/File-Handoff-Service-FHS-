@@ -115,3 +115,33 @@ keeps the setup script as its own subsection; the CLI instructions were consolid
 instead of living below the quick start. The homepage shows two buttons at the top of the
 deploy section and places the setup-script commands before the CLI steps, with an anchor for
 the second button.
+
+## 2026-11-03 — Open-by-default filters: size, MIME types, browser origins
+
+Added two new optional filters and documented the existing size cap as the third. Every filter
+is wildcard when unset, so existing deployments keep the same behavior.
+
+- `MAX_PAYLOAD_BYTES` already existed; it is now presented as the maximum-file-size filter and
+  remains the only one enforced while streaming.
+- `ALLOWED_CONTENT_TYPES` accepts a comma-separated MIME allowlist with exact values and
+  `type/*` wildcards. A blocked upload returns `415` before the body is stored. Content-Type is
+  declared by the client, so this is a filter, not content inspection.
+- `ALLOWED_DOMAINS` accepts exact hostnames and `*.example.com` wildcards. It checks browser
+  `Origin` first and falls back to `Referer`; a present but disallowed source returns `403`.
+  Requests with neither header are allowed, because server-to-server clients do not send them.
+  This is deliberately a browser control, not authentication; `UPLOAD_SECRET` remains the gate.
+- CORS is now handled explicitly. With no domain allowlist, responses carry
+  `Access-Control-Allow-Origin: *` and `OPTIONS` preflight succeeds. With an allowlist, allowed
+  origins are echoed with `Vary: Origin`, including on errors and retrieve responses; preflight
+  from a disallowed origin returns `403`.
+- The root descriptor now includes a `filters` object (`"any"` when open).
+
+**Verification (local).** `npm test` → exit 0: setup dry-run ok, end-to-end 11/11, filters
+11/11. New coverage includes default wildcard CORS, MIME rejection, exact and wildcard MIME
+acceptance, allowed/disallowed origins, the `Referer` fallback, wildcard subdomains not matching
+the apex, no-Origin server-to-server requests, preflight, retrieve CORS, CORS on a `415`, and the
+1 MB test cap.
+
+**Deploy status.** Worker not deployed: no Cloudflare account or credentials are available in
+this environment. Homepage and docs changes are committed to `main` for GitHub Pages; the live
+Worker behavior remains verified only against local `wrangler dev`.

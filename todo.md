@@ -6,8 +6,9 @@
 - [x] Durable Object `HandoffVault`: in-memory chunks, seal-time TTL, single-use burn, zero-fill on expiry
 - [x] Chunked streaming both directions (8 MB default chunks, 25 MB default cap)
 - [x] Optional `UPLOAD_SECRET` bearer gate on upload
-- [x] Config vars: `TTL_SECONDS`, `MAX_PAYLOAD_BYTES`, `CHUNK_SIZE_BYTES`
-- [x] End-to-end suite booting `wrangler dev` locally (`npm test`)
+- [x] Config vars: `TTL_SECONDS`, `MAX_PAYLOAD_BYTES`, `CHUNK_SIZE_BYTES`, `ALLOWED_CONTENT_TYPES`, `ALLOWED_DOMAINS`
+- [x] Open-by-default filters: payload cap, MIME-type allowlist, browser-origin allowlist with CORS and preflight
+- [x] End-to-end and filter suites booting `wrangler dev` locally (`npm test`)
 - [x] Zero-prompt `wrangler.jsonc` with `HANDOFF_VAULT` binding and `v1` migration
 - [x] SEO/AEO homepage on GitHub Pages: structured data, FAQ, sitemap, robots, `llms.txt`
 - [x] Copyable AI agent prompt on the homepage

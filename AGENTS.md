@@ -18,19 +18,20 @@ The repository is also a GitHub template. `index.html` and `assets/` at the root
 6. **Response hygiene.** All responses carry `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. Retrieved files are `Content-Disposition: attachment`.
 7. **Migrations are append-only.** Do not edit the existing `tag: "v1"` migration. Add a new tag for a new class.
 8. **Honest docs.** Do not claim durability, physical RAM zeroing, certification, or compliance that the platform cannot provide. The README's "Honest limits" section is load-bearing.
+9. **Filters default open.** `MAX_PAYLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, and `ALLOWED_DOMAINS` must work with no configuration. Content-Type and browser Origin/Referer checks are advisory filters, never authentication.
 
 ## Commands
 
 ```bash
 npm install            # installs wrangler (pinned; requires Node 20.3+)
-npm test               # setup dry-run, then the end-to-end suite on 127.0.0.1:8799
+npm test               # setup dry-run, end-to-end (127.0.0.1:8799), and filters (127.0.0.1:8800)
 npm run setup          # deploy this local checkout (sets UPLOAD_SECRET outside the repo)
 npm run dev            # local server on 127.0.0.1:8787
 npx wrangler deploy    # deploy the Worker (needs wrangler login or CLOUDFLARE_API_TOKEN)
 npm run tail           # stream production logs
 ```
 
-`npm test` needs no Cloudflare account. It starts its own server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret) and kills it afterwards. It must pass before you commit.
+`npm test` needs no Cloudflare account. The end-to-end suite starts a server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret); the filter suite starts a second one with a MIME allowlist, a domain allowlist, and a 1 MB cap. Both are killed afterwards. It must pass before you commit.
 
 ## Deploying
 
@@ -56,7 +57,7 @@ This machine is memory-constrained. Before you report a task complete:
 ```bash
 # 1. Stop every server you started, by recorded PID (never pkill -f patterns)
 kill <pid>
-lsof -i:8787 -i:8799 2>/dev/null     # must print nothing
+lsof -i:8787 -i:8799 -i:8800 2>/dev/null   # must print nothing
 
 # 2. Remove transient state and dependencies
 rm -rf node_modules .wrangler
@@ -82,6 +83,8 @@ git status --short                   # only intended changes
 ## Testing guidance
 
 Add checks to `test/e2e.test.mjs` when behavior changes. Keep the suite self-contained: spawn `wrangler dev`, wait for HTTP readiness (never rely on a banner), assert with `node:assert/strict`, and always tear the server down. Cover the happy path, single-use semantics, expiry, size cap, and method/route errors.
+
+`test/filters.test.mjs` covers configured behavior: MIME allowlists (blocked uploads return `415`), browser-origin allowlists with CORS and preflight (blocked origins return `403`), and the payload cap (`413`). `test/e2e.test.mjs` must keep proving the defaults are open: no MIME or domain configuration, wildcard CORS, and uploads without `Origin`.
 
 ## Site guidance
 

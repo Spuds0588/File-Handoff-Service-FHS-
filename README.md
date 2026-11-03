@@ -9,6 +9,7 @@ An ephemeral, single-use, zero-retention binary relay built on Cloudflare Worker
 - 25 MB default payload, 60 second default TTL, both configurable.
 - Chunked streaming in both directions, so no isolate holds the whole file.
 - Optional bearer token on upload. No payload contents in logs.
+- Open-by-default filters for payload size, MIME types, and browser origins.
 
 ## Deploy
 
@@ -106,7 +107,7 @@ Service B ── GET /retrieve/:token ──────────────
 git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs
 cd fhs
 npm install
-npm test        # setup dry-run + end-to-end suite (boots wrangler dev on 127.0.0.1:8799)
+npm test        # setup dry-run + end-to-end + filter suites (wrangler dev on 127.0.0.1:8799 and :8800)
 npm run dev     # manual local server on 127.0.0.1:8787
 ```
 
@@ -114,7 +115,7 @@ npm run dev     # manual local server on 127.0.0.1:8787
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/` | JSON descriptor: version, routes, live limits. |
+| `GET` | `/` | JSON descriptor: version, routes, limits, and filters. |
 | `POST` | `/upload` | Request body is the file. `201` with `token`, `handoffUrl`, `contentType`, `totalBytes`, `totalChunks`, `expiresInSeconds`, `expiresAt`. |
 | `GET` | `/retrieve/:token` | Streams the payload once. `410` afterwards. |
 
@@ -132,7 +133,7 @@ curl -sS -X POST "$FHS/upload" \
 curl -sS "$FHS/retrieve/<token>" -o report.pdf
 ```
 
-Status codes: `201` sealed, `400` malformed token, `401` upload secret required, `405` wrong method, `410` expired or consumed, `413` over the payload cap, `500` internal error.
+Status codes: `201` sealed, `400` malformed token, `401` upload secret required, `403` disallowed browser origin, `405` wrong method, `410` expired or consumed, `413` over the payload cap, `415` disallowed content type, `500` internal error.
 
 ## Configuration
 
@@ -143,7 +144,27 @@ Set plain values under `vars` in `wrangler.jsonc` and redeploy. Use `npx wrangle
 | `TTL_SECONDS` | `60` | 5–3600. Starts when the upload is sealed. |
 | `MAX_PAYLOAD_BYTES` | `26214400` (25 MB) | Up to `94371840` (90 MB). |
 | `CHUNK_SIZE_BYTES` | `8388608` (8 MB) | 64 KB–16 MB, one Durable Object per chunk. |
+| `ALLOWED_CONTENT_TYPES` | unset (any) | Comma-separated MIME types; `image/*` wildcard; blocked uploads get `415`. |
+| `ALLOWED_DOMAINS` | unset (any) | Comma-separated browser Origin/Referer hostnames; `*.example.com` wildcard; blocked requests get `403`. |
 | `UPLOAD_SECRET` | unset | When set, uploads need `Authorization: Bearer <secret>`. |
+
+### Filters
+
+Every filter is open by default. Set any of them under `vars` in `wrangler.jsonc` and redeploy:
+
+```jsonc
+"vars": {
+  "MAX_PAYLOAD_BYTES": "10485760",
+  "ALLOWED_CONTENT_TYPES": "application/pdf,image/*",
+  "ALLOWED_DOMAINS": "app.example.com,*.example.org"
+}
+```
+
+- `MAX_PAYLOAD_BYTES` caps each handoff. It is checked from `Content-Length` and enforced again while the body streams; over-limit uploads get `413`.
+- `ALLOWED_CONTENT_TYPES` is a comma-separated MIME allowlist. Exact values and `type/*` wildcards work; `*/*` or unset allows any type. Blocked uploads get `415`.
+- `ALLOWED_DOMAINS` is a comma-separated hostname allowlist for the browser `Origin` header, with `Referer` as a fallback. Exact hosts and `*.example.com` wildcards work; unset allows any. Blocked requests get `403`, and allowed origins receive matching CORS headers, including preflight.
+- Requests with neither `Origin` nor `Referer` are allowed because server-to-server clients do not send them. This is a browser control, not authentication; keep `UPLOAD_SECRET` for that.
+- `Content-Type` is declared by the client. FHS does not sniff file contents or scan for malware.
 
 ## Security model
 
@@ -159,6 +180,7 @@ Set plain values under `vars` in `wrangler.jsonc` and redeploy. Use `npx wrangle
 - **Not a guarantee of physical erasure.** FHS drops its references and zeroes chunks that expire unread, but it cannot prove that every copy inside the V8 heap or OS was overwritten. The guarantee is that the service never persists payloads and retains no reference after delivery or expiry.
 - **No payload authentication.** Anyone holding the handoff URL can download once. Deliver it over your own trusted channel, server to server.
 - **No built-in rate limiting.** Put Cloudflare WAF/rate limiting in front of `/upload` for public deployments.
+- **Filters are not a security boundary.** `ALLOWED_CONTENT_TYPES` trusts the declared header, and `ALLOWED_DOMAINS` only constrains browser CORS; any non-browser client can omit or forge those headers. Use `UPLOAD_SECRET` for authorization.
 - **Compliance is yours.** The architecture removes a stored-data surface, but HIPAA, GLBA, and GDPR obligations cover your whole system, agreements included. FHS is not a certification.
 
 ## Project layout
@@ -168,6 +190,7 @@ index.html, assets/, robots.txt, sitemap.xml, llms.txt   static site served by G
 src/index.js                                             Worker + Durable Object
 scripts/setup.mjs                                        deploy from another repo, no secrets in it
 test/e2e.test.mjs                                        end-to-end suite (wrangler dev)
+test/filters.test.mjs                                    content-type, domain/CORS, and payload-cap tests
 test/setup.test.mjs                                      offline dry-run check for the setup script
 wrangler.jsonc                                           bindings, migration, vars
 AGENTS.md                                                rules for agents working in this repo

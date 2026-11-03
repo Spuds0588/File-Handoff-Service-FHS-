@@ -15,6 +15,7 @@
 - Payloads are split into 8 MB chunks, one Durable Object each, and only ever exist in isolate memory.
 - The TTL clock starts when the upload is sealed: 60 seconds by default, 5 to 3600 configurable.
 - Default payload ceiling is 25 MB; configurable up to 90 MB, under the Workers 100 MB request-body limit.
+- Open-by-default filters: payload size, MIME type allowlist, and browser-origin allowlist with CORS.
 
 ## What it is for
 
@@ -26,13 +27,13 @@ It is not a file store, a queue, or a workflow engine. It is not durable: if the
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/` | JSON descriptor with live limits |
+| GET | `/` | JSON descriptor with live limits and filters |
 | POST | `/upload` | Body is the file; returns 201 with token and handoffUrl |
 | GET | `/retrieve/:token` | Streams the file once (200); afterwards 410 |
 
 Upload response fields: `token`, `handoffUrl`, `contentType`, `totalBytes`, `totalChunks`, `expiresInSeconds`, `expiresAt`.
 
-Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set and the bearer token is missing, 405 wrong method, 410 expired or already consumed, 413 over the payload cap, 500 internal error.
+Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set and the bearer token is missing, 403 disallowed browser origin, 405 wrong method, 410 expired or already consumed, 413 over the payload cap, 415 disallowed content type, 500 internal error.
 
 ## Configuration
 
@@ -41,7 +42,11 @@ Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set a
 | `TTL_SECONDS` | 60 | 5 to 3600 |
 | `MAX_PAYLOAD_BYTES` | 26214400 (25 MB) | 1024 to 94371840 (90 MB) |
 | `CHUNK_SIZE_BYTES` | 8388608 (8 MB) | 65536 to 16777216 |
+| `ALLOWED_CONTENT_TYPES` | unset (any) | comma-separated MIME types; `image/*` wildcard; blocked uploads get 415 |
+| `ALLOWED_DOMAINS` | unset (any) | comma-separated browser Origin/Referer hostnames; `*.example.com` wildcard; blocked requests get 403 |
 | `UPLOAD_SECRET` | unset | any string; set with `wrangler secret put` |
+
+All filters are open by default. `ALLOWED_CONTENT_TYPES` trusts the declared header, and `ALLOWED_DOMAINS` only governs browser Origin/Referer, so neither replaces `UPLOAD_SECRET` authorization.
 
 ## Deploy
 

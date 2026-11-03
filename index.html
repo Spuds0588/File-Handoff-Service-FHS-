@@ -158,6 +158,14 @@
               },
               {
                 "@type": "Question",
+                "name": "Can I restrict file types or sending domains?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, and both are open by default. ALLOWED_CONTENT_TYPES accepts a comma-separated MIME allowlist such as application/pdf,image/*; blocked uploads return 415. ALLOWED_DOMAINS accepts hostnames such as app.example.com,*.example.org for browser Origin/Referer checks and returns 403 for other origins. Neither replaces UPLOAD_SECRET: Content-Type is client-declared, and non-browser clients can omit or forge Origin/Referer."
+                }
+              },
+              {
+                "@type": "Question",
                 "name": "What happens if the receiving service is down?",
                 "acceptedAnswer": {
                   "@type": "Answer",
@@ -426,7 +434,7 @@ curl -sS -X POST --data-binary @report.pdf \
                 <tr>
                   <td>GET</td>
                   <td><code>/</code></td>
-                  <td>JSON descriptor: version, routes, live limits.</td>
+                  <td>JSON descriptor: version, routes, limits, and filters.</td>
                 </tr>
                 <tr>
                   <td>POST</td>
@@ -498,6 +506,16 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
                   <td>64 KB to 16 MB, one Durable Object per chunk.</td>
                 </tr>
                 <tr>
+                  <td><code>ALLOWED_CONTENT_TYPES</code></td>
+                  <td>unset (any)</td>
+                  <td>Comma-separated MIME types; <code>image/*</code> wildcards. Blocked uploads get 415.</td>
+                </tr>
+                <tr>
+                  <td><code>ALLOWED_DOMAINS</code></td>
+                  <td>unset (any)</td>
+                  <td>Browser Origin/Referer hosts; <code>*.example.com</code>. Blocked requests get 403.</td>
+                </tr>
+                <tr>
                   <td><code>UPLOAD_SECRET</code></td>
                   <td>unset</td>
                   <td>When set, uploads require <code>Authorization: Bearer &lt;secret&gt;</code>.</td>
@@ -508,6 +526,12 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
           <p class="hint">
             Set plain values under <code>vars</code> in <code>wrangler.jsonc</code>, then redeploy.
             For the secret use <code>npx wrangler secret put UPLOAD_SECRET</code>; never commit it.
+          </p>
+          <p class="hint">
+            All filters are open by default; empty or unset means any.
+            <code>ALLOWED_CONTENT_TYPES</code> trusts the declared header, and
+            <code>ALLOWED_DOMAINS</code> only governs browser Origin/Referer, so use
+            <code>UPLOAD_SECRET</code> for real authorization.
           </p>
         </div>
       </section>
@@ -571,6 +595,17 @@ FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Objec
             25 MB by default. <code>MAX_PAYLOAD_BYTES</code> can raise it to 90 MB, which stays
             under the Workers Free and Pro request-body ceiling of 100 MB. Uploads and downloads
             stream in 8 MB chunks so no single isolate holds the whole file.
+          </p>
+
+          <h3>Can I restrict file types or sending domains?</h3>
+          <p>
+            Yes, and both are open by default. <code>ALLOWED_CONTENT_TYPES</code> accepts a
+            comma-separated MIME allowlist such as <code>application/pdf,image/*</code>;
+            blocked uploads return 415. <code>ALLOWED_DOMAINS</code> accepts hostnames such as
+            <code>app.example.com,*.example.org</code> for browser Origin/Referer checks and
+            returns 403 for other origins. Neither replaces <code>UPLOAD_SECRET</code>:
+            Content-Type is client-declared, and non-browser clients can omit or forge
+            Origin/Referer.
           </p>
 
           <h3>What happens if the receiving service is down?</h3>
