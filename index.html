@@ -353,13 +353,26 @@
 
           <p class="deploy-cta">
             <a class="button" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-">Deploy to Cloudflare</a>
+            <a class="button ghost" href="#setup-script">Deploy from another repo</a>
           </p>
           <p class="hint">
             One click clones this repository into your account, provisions the Durable Object,
             and deploys the Worker with no required fields. Then gate uploads with
-            <code>npx wrangler secret put UPLOAD_SECRET</code>. Prefer the CLI? Four commands:
+            <code>npx wrangler secret put UPLOAD_SECRET</code>.
           </p>
 
+          <div id="setup-script">
+            <p class="step-label">Or run the setup script, from the repo you are already in</p>
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/Spuds0588/File-Handoff-Service-FHS-/main/scripts/setup.mjs -o /tmp/fhs-setup.mjs
+node /tmp/fhs-setup.mjs</code></pre>
+            <p class="hint">
+              The script checks FHS out to a temporary directory, deploys it, sets the upload
+              secret outside your repo, verifies a real handoff, and removes the checkout. Your
+              project is left untouched.
+            </p>
+          </div>
+
+          <p class="step-label">Or use the CLI, from a local clone</p>
           <p class="step-label">1 — Get the code</p>
           <pre><code>git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs
 cd fhs
@@ -394,14 +407,6 @@ curl -sS -X POST --data-binary @report.pdf \
             Local tests need no Cloudflare account at all: run <code>npm test</code>.
           </p>
 
-          <p class="step-label">Working in another repo?</p>
-          <pre><code>curl -fsSL https://raw.githubusercontent.com/Spuds0588/File-Handoff-Service-FHS-/main/scripts/setup.mjs -o /tmp/fhs-setup.mjs
-node /tmp/fhs-setup.mjs</code></pre>
-          <p class="hint">
-            The setup script checks FHS out to a temporary directory, deploys it, sets the upload
-            secret outside your repo, verifies a real handoff, and removes the checkout. Your
-            project is left untouched.
-          </p>
         </div>
       </section>
 

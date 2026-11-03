@@ -106,3 +106,12 @@ side-effect free; `--keep` preserves the checkout and `--ref` selects a branch o
 Added `test/setup.test.mjs` for the dry-run path and changed `npm test` to run it before the
 existing end-to-end suite. Updated the README, homepage (deploy section and agent prompt),
 `llms.txt`, and `AGENTS.md`.
+
+## 2026-11-03 — Deploy options surfaced
+
+The setup script existed but read as a footnote at the bottom of the deploy section. The README
+deploy section now opens with the three supported paths (one click, setup script, CLI) and
+keeps the setup script as its own subsection; the CLI instructions were consolidated there
+instead of living below the quick start. The homepage shows two buttons at the top of the
+deploy section and places the setup-script commands before the CLI steps, with an anchor for
+the second button.

@@ -207,6 +207,10 @@ h1 {
   margin: 20px 0 8px;
 }
 
+#setup-script {
+  scroll-margin-top: 16px;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

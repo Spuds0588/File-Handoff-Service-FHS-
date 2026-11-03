@@ -10,7 +10,15 @@ An ephemeral, single-use, zero-retention binary relay built on Cloudflare Worker
 - Chunked streaming in both directions, so no isolate holds the whole file.
 - Optional bearer token on upload. No payload contents in logs.
 
-## Deploy in one click
+## Deploy
+
+Three ways to get the same Worker:
+
+- **One click** — the button clones the repo into your GitHub account and deploys from the dashboard.
+- **Setup script** — no clone into your project; a temporary checkout, with secrets outside the repo.
+- **CLI** — clone locally, log in, and deploy.
+
+### One click
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-)
 
@@ -35,9 +43,9 @@ export FHS=https://file-handoff-service.YOUR-SUBDOMAIN.workers.dev
 curl -sS "$FHS/"
 ```
 
-### From an agent working in another repository
+### Setup script (no clone into your project)
 
-If the agent is already inside another project and must not clone this one, run the setup script.
+If an agent is already inside another project and must not clone this one, run the setup script.
 It checks out FHS into a temporary directory, deploys it, sets the upload secret, verifies a real
 handoff, and deletes the checkout. Nothing is written into your project.
 
@@ -59,6 +67,23 @@ inspection, and `--ref` deploys a branch or tag other than `main`.
   written to `wrangler.jsonc` or any committed file.
 - `CLOUDFLARE_API_TOKEN`, if used, is read from the environment.
 - `.dev.vars` is local-only and gitignored; `.dev.vars.example` is a template with no value.
+
+### From the CLI
+
+Requires Node 20.3+ and a Cloudflare account (the free plan is enough). From a local clone (see
+[Quick start](#quick-start-local-no-account)), run:
+
+```bash
+npx wrangler login
+npx wrangler deploy
+```
+
+`wrangler deploy` prints `https://file-handoff-service.<subdomain>.workers.dev`. Then set the
+upload secret:
+
+```bash
+npx wrangler secret put UPLOAD_SECRET
+```
 
 ## How it works
 
@@ -83,24 +108,6 @@ cd fhs
 npm install
 npm test        # setup dry-run + end-to-end suite (boots wrangler dev on 127.0.0.1:8799)
 npm run dev     # manual local server on 127.0.0.1:8787
-```
-
-## Deploy from the CLI
-
-Requires Node 20.3+ and a Cloudflare account (the free plan is enough). The result is the same
-as the button, without cloning the repository into your GitHub account.
-
-```bash
-npx wrangler login
-npx wrangler deploy
-```
-
-`wrangler deploy` prints `https://file-handoff-service.<subdomain>.workers.dev`. The Durable Object binding and the `v1` migration are already in `wrangler.jsonc`; there is nothing to create by hand.
-
-Then set the upload secret so the endpoint is not open:
-
-```bash
-npx wrangler secret put UPLOAD_SECRET
 ```
 
 ## API
