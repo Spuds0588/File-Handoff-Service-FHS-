@@ -152,7 +152,10 @@ try {
     assert.equal(body.limits.chunkSizeBytes, CHUNK);
     assert.equal(body.limits.ttlSeconds, TTL);
     assert.equal(body.filters.allowedContentTypes, "any");
-    assert.equal(body.filters.allowedDomains, "any");
+    assert.equal(body.filters.uploadDomains, "any");
+    assert.equal(body.filters.retrieveDomains, "any");
+    assert.equal(body.auth.uploadSecretRequired, true);
+    assert.equal(body.auth.retrieveSecretRequired, false);
     assert.equal(response.headers.get("access-control-allow-origin"), "*");
   });
 

@@ -14,15 +14,18 @@
 
   "observability": { "enabled": true }
 
-  // Optional runtime overrides (defaults shown). Uncomment and redeploy, or use
-  // `wrangler secret put UPLOAD_SECRET` for the upload secret. Filters are open
-  // when omitted; set them to restrict uploads.
+  // Optional runtime overrides (defaults shown). Uncomment and redeploy. Filters
+  // are open when omitted; each side can be set independently. Use
+  // `wrangler secret put UPLOAD_SECRET` and/or `RETRIEVE_SECRET` for bearer gates.
   //
   // "vars": {
   //   "TTL_SECONDS": "60",
   //   "MAX_PAYLOAD_BYTES": "26214400",
   //   "CHUNK_SIZE_BYTES": "8388608",
   //   "ALLOWED_CONTENT_TYPES": "application/pdf,image/*",
-  //   "ALLOWED_DOMAINS": "app.example.com,*.example.org"
+  //   "ALLOWED_UPLOAD_DOMAINS": "app.example.com,*.example.org",
+  //   "ALLOWED_RETRIEVE_DOMAINS": "consumer.example.org",
+  //   // Shared fallback for both sides when the side-specific vars are absent:
+  //   "ALLOWED_DOMAINS": "shared.example.com"
   // }
 }

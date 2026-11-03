@@ -158,10 +158,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Can I restrict file types or sending domains?",
+                "name": "Can I restrict who can upload or retrieve a handoff?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes, and both are open by default. ALLOWED_CONTENT_TYPES accepts a comma-separated MIME allowlist such as application/pdf,image/*; blocked uploads return 415. ALLOWED_DOMAINS accepts hostnames such as app.example.com,*.example.org for browser Origin/Referer checks and returns 403 for other origins. Neither replaces UPLOAD_SECRET: Content-Type is client-declared, and non-browser clients can omit or forge Origin/Referer."
+                  "text": "Yes, independently. ALLOWED_UPLOAD_DOMAINS and ALLOWED_RETRIEVE_DOMAINS accept hostnames such as app.example.com,*.example.org for browser Origin/Referer checks; ALLOWED_DOMAINS is a shared fallback. Blocked origins return 403. UPLOAD_SECRET and RETRIEVE_SECRET optionally require Authorization: Bearer on their side, independently. ALLOWED_CONTENT_TYPES and MAX_PAYLOAD_BYTES apply to uploads. Domain checks only govern browsers; use the secrets for real authorization."
                 }
               },
               {
@@ -365,8 +365,9 @@
           </p>
           <p class="hint">
             One click clones this repository into your account, provisions the Durable Object,
-            and deploys the Worker with no required fields. Then gate uploads with
-            <code>npx wrangler secret put UPLOAD_SECRET</code>.
+            and deploys the Worker with no required fields. Then gate either side with
+            <code>npx wrangler secret put UPLOAD_SECRET</code> or
+            <code>npx wrangler secret put RETRIEVE_SECRET</code>; neither is required.
           </p>
 
           <div id="setup-script">
@@ -434,7 +435,7 @@ curl -sS -X POST --data-binary @report.pdf \
                 <tr>
                   <td>GET</td>
                   <td><code>/</code></td>
-                  <td>JSON descriptor: version, routes, limits, and filters.</td>
+                  <td>JSON descriptor: version, routes, limits, filters, and auth requirements.</td>
                 </tr>
                 <tr>
                   <td>POST</td>
@@ -508,30 +509,45 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
                 <tr>
                   <td><code>ALLOWED_CONTENT_TYPES</code></td>
                   <td>unset (any)</td>
-                  <td>Comma-separated MIME types; <code>image/*</code> wildcards. Blocked uploads get 415.</td>
+                  <td>Upload only. Comma-separated MIME types; <code>image/*</code> wildcards; blocked uploads get 415.</td>
                 </tr>
                 <tr>
                   <td><code>ALLOWED_DOMAINS</code></td>
                   <td>unset (any)</td>
-                  <td>Browser Origin/Referer hosts; <code>*.example.com</code>. Blocked requests get 403.</td>
+                  <td>Shared browser fallback for both sides; side-specific variables override it.</td>
+                </tr>
+                <tr>
+                  <td><code>ALLOWED_UPLOAD_DOMAINS</code></td>
+                  <td>inherits shared</td>
+                  <td>Upload-only Origin/Referer hosts; <code>*.example.com</code>; blocked uploads get 403.</td>
+                </tr>
+                <tr>
+                  <td><code>ALLOWED_RETRIEVE_DOMAINS</code></td>
+                  <td>inherits shared</td>
+                  <td>Retrieve-only Origin/Referer hosts; <code>*.example.com</code>; blocked retrievals get 403.</td>
                 </tr>
                 <tr>
                   <td><code>UPLOAD_SECRET</code></td>
                   <td>unset</td>
-                  <td>When set, uploads require <code>Authorization: Bearer &lt;secret&gt;</code>.</td>
+                  <td>When set, uploads require <code>Authorization: Bearer &lt;secret&gt;</code>; retrieval is unaffected.</td>
+                </tr>
+                <tr>
+                  <td><code>RETRIEVE_SECRET</code></td>
+                  <td>unset</td>
+                  <td>When set, retrievals require <code>Authorization: Bearer &lt;secret&gt;</code>; upload is unaffected.</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p class="hint">
             Set plain values under <code>vars</code> in <code>wrangler.jsonc</code>, then redeploy.
-            For the secret use <code>npx wrangler secret put UPLOAD_SECRET</code>; never commit it.
+            For secrets use <code>npx wrangler secret put UPLOAD_SECRET</code> or
+            <code>npx wrangler secret put RETRIEVE_SECRET</code>; never commit them.
           </p>
           <p class="hint">
-            All filters are open by default; empty or unset means any.
-            <code>ALLOWED_CONTENT_TYPES</code> trusts the declared header, and
-            <code>ALLOWED_DOMAINS</code> only governs browser Origin/Referer, so use
-            <code>UPLOAD_SECRET</code> for real authorization.
+            The sides are independent. Empty or unset means any or no secret, so you can gate
+            uploads, retrievals, both, or neither. Domain checks are browser CORS, not
+            authentication; use the secrets for real authorization.
           </p>
         </div>
       </section>
@@ -597,15 +613,16 @@ FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Objec
             stream in 8 MB chunks so no single isolate holds the whole file.
           </p>
 
-          <h3>Can I restrict file types or sending domains?</h3>
+          <h3>Can I restrict who can upload or retrieve a handoff?</h3>
           <p>
-            Yes, and both are open by default. <code>ALLOWED_CONTENT_TYPES</code> accepts a
-            comma-separated MIME allowlist such as <code>application/pdf,image/*</code>;
-            blocked uploads return 415. <code>ALLOWED_DOMAINS</code> accepts hostnames such as
-            <code>app.example.com,*.example.org</code> for browser Origin/Referer checks and
-            returns 403 for other origins. Neither replaces <code>UPLOAD_SECRET</code>:
-            Content-Type is client-declared, and non-browser clients can omit or forge
-            Origin/Referer.
+            Yes, independently. <code>ALLOWED_UPLOAD_DOMAINS</code> and
+            <code>ALLOWED_RETRIEVE_DOMAINS</code> accept hostnames such as
+            <code>app.example.com,*.example.org</code> for browser Origin/Referer checks;
+            <code>ALLOWED_DOMAINS</code> is a shared fallback. Blocked origins return 403.
+            <code>UPLOAD_SECRET</code> and <code>RETRIEVE_SECRET</code> optionally require
+            <code>Authorization: Bearer</code> on their side, independently.
+            <code>ALLOWED_CONTENT_TYPES</code> and <code>MAX_PAYLOAD_BYTES</code> apply to
+            uploads. Domain checks only govern browsers; use the secrets for real authorization.
           </p>
 
           <h3>What happens if the receiving service is down?</h3>

@@ -140,7 +140,10 @@ try {
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.deepEqual(body.filters.allowedContentTypes, ["application/pdf", "image/*"]);
-    assert.deepEqual(body.filters.allowedDomains, ["app.example.com", "*.trusted.test"]);
+    assert.deepEqual(body.filters.uploadDomains, ["app.example.com", "*.trusted.test"]);
+    assert.deepEqual(body.filters.retrieveDomains, ["app.example.com", "*.trusted.test"]);
+    assert.equal(body.auth.uploadSecretRequired, true);
+    assert.equal(body.auth.retrieveSecretRequired, false);
   });
 
   await check("rejects a content type outside the allowlist", async () => {

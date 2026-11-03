@@ -15,7 +15,7 @@
 - Payloads are split into 8 MB chunks, one Durable Object each, and only ever exist in isolate memory.
 - The TTL clock starts when the upload is sealed: 60 seconds by default, 5 to 3600 configurable.
 - Default payload ceiling is 25 MB; configurable up to 90 MB, under the Workers 100 MB request-body limit.
-- Open-by-default filters: payload size, MIME type allowlist, and browser-origin allowlist with CORS.
+- Open-by-default, independently configurable filters for upload and retrieve: domain allowlists, optional bearer secrets, payload size, and MIME type.
 
 ## What it is for
 
@@ -27,13 +27,13 @@ It is not a file store, a queue, or a workflow engine. It is not durable: if the
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/` | JSON descriptor with live limits and filters |
+| GET | `/` | JSON descriptor with live limits, filters, and auth requirements |
 | POST | `/upload` | Body is the file; returns 201 with token and handoffUrl |
 | GET | `/retrieve/:token` | Streams the file once (200); afterwards 410 |
 
 Upload response fields: `token`, `handoffUrl`, `contentType`, `totalBytes`, `totalChunks`, `expiresInSeconds`, `expiresAt`.
 
-Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set and the bearer token is missing, 403 disallowed browser origin, 405 wrong method, 410 expired or already consumed, 413 over the payload cap, 415 disallowed content type, 500 internal error.
+Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` or `RETRIEVE_SECRET` is set and the bearer token is missing, 403 disallowed browser origin, 405 wrong method, 410 expired or already consumed, 413 over the payload cap, 415 disallowed content type, 500 internal error.
 
 ## Configuration
 
@@ -42,21 +42,24 @@ Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set a
 | `TTL_SECONDS` | 60 | 5 to 3600 |
 | `MAX_PAYLOAD_BYTES` | 26214400 (25 MB) | 1024 to 94371840 (90 MB) |
 | `CHUNK_SIZE_BYTES` | 8388608 (8 MB) | 65536 to 16777216 |
-| `ALLOWED_CONTENT_TYPES` | unset (any) | comma-separated MIME types; `image/*` wildcard; blocked uploads get 415 |
-| `ALLOWED_DOMAINS` | unset (any) | comma-separated browser Origin/Referer hostnames; `*.example.com` wildcard; blocked requests get 403 |
-| `UPLOAD_SECRET` | unset | any string; set with `wrangler secret put` |
+| `ALLOWED_CONTENT_TYPES` | unset (any) | upload only; comma-separated MIME types; `image/*` wildcard; blocked uploads get 415 |
+| `ALLOWED_DOMAINS` | unset (any) | shared browser Origin/Referer fallback for both sides; side-specific variables override it |
+| `ALLOWED_UPLOAD_DOMAINS` | inherits shared | upload-only browser Origin/Referer hostnames; `*.example.com`; blocked uploads get 403 |
+| `ALLOWED_RETRIEVE_DOMAINS` | inherits shared | retrieve-only browser Origin/Referer hostnames; `*.example.com`; blocked retrievals get 403 |
+| `UPLOAD_SECRET` | unset | any string; gates POST /upload only; set with `wrangler secret put` |
+| `RETRIEVE_SECRET` | unset | any string; gates GET /retrieve/:token only; set with `wrangler secret put` |
 
-All filters are open by default. `ALLOWED_CONTENT_TYPES` trusts the declared header, and `ALLOWED_DOMAINS` only governs browser Origin/Referer, so neither replaces `UPLOAD_SECRET` authorization.
+Upload and retrieve filters are independent and open by default. `ALLOWED_DOMAINS` is a shared fallback; the side-specific variables replace it for that side. Domain checks only govern browser Origin/Referer, while `UPLOAD_SECRET` and `RETRIEVE_SECRET` are real bearer gates.
 
 ## Deploy
 
-One-click deploy (clones into your GitHub account, provisions the Durable Object, no required fields; set `UPLOAD_SECRET` after deploy):
+One-click deploy (clones into your GitHub account, provisions the Durable Object, no required fields; set `UPLOAD_SECRET` and/or `RETRIEVE_SECRET` after deploy):
 https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-
 
 From an agent working in another repository, without adding files or secrets to it:
 https://raw.githubusercontent.com/Spuds0588/File-Handoff-Service-FHS-/main/scripts/setup.mjs
 
-The script uses a temporary checkout, writes the generated upload secret to `~/.fhs/upload-secret` (mode 600), verifies upload/retrieve/410, and removes the checkout.
+The script uses a temporary checkout, writes the generated upload secret to `~/.fhs/upload-secret` (mode 600), verifies upload/retrieve/410, and removes the checkout. It does not manage `RETRIEVE_SECRET`; set that separately if you want to gate retrieval.
 
 Or from the CLI:
 

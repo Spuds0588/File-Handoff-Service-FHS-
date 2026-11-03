@@ -7,7 +7,9 @@
 # the line stays commented. Set the real value after deploying:
 #
 #   npx wrangler secret put UPLOAD_SECRET
+#   npx wrangler secret put RETRIEVE_SECRET
 #
 # Generate one with: openssl rand -hex 32
 #
 # UPLOAD_SECRET=
+# RETRIEVE_SECRET=

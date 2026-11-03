@@ -145,3 +145,31 @@ the apex, no-Origin server-to-server requests, preflight, retrieve CORS, CORS on
 **Deploy status.** Worker not deployed: no Cloudflare account or credentials are available in
 this environment. Homepage and docs changes are committed to `main` for GitHub Pages; the live
 Worker behavior remains verified only against local `wrangler dev`.
+
+## 2026-11-03 — Independent filters for upload and retrieve
+
+Split browser-domain filtering into two independent sides and added an optional retrieval
+secret. The shared `ALLOWED_DOMAINS` remains as a fallback, so existing single-list configurations
+keep working, but either side can now be opened or closed on its own.
+
+- `ALLOWED_UPLOAD_DOMAINS` and `ALLOWED_RETRIEVE_DOMAINS` override the shared list per side. An
+  unset side inherits `ALLOWED_DOMAINS`; setting a side-specific value to empty opens that side.
+  Route-specific CORS and preflight mean an origin allowed for upload is not automatically
+  allowed for retrieval, or vice versa.
+- `RETRIEVE_SECRET` adds an optional constant-time bearer gate to `GET /retrieve/:token`. It is
+  independent of `UPLOAD_SECRET`: either, both, or neither may be set. The single-use token is
+  still required, and a missing or wrong secret returns `401` with `WWW-Authenticate: Bearer`.
+- The descriptor's `filters` object now reports `uploadDomains` and `retrieveDomains` separately;
+  `auth` reports whether each secret is required. Secret values are never exposed.
+- `MAX_PAYLOAD_BYTES` and `ALLOWED_CONTENT_TYPES` remain upload-only. Domain checks remain browser
+  CORS controls; a no-`Origin`/`Referer` request is allowed, so the secrets are the real gates.
+
+**Verification (local).** `npm test` → exit 0: setup dry-run ok, end-to-end 11/11, shared filter
+11/11, side-specific 12/12 (34 runtime checks). The side suite starts three servers on
+`127.0.0.1:8801-8803` and covers both sides filtered, only upload filtered, only retrieve
+filtered, `RETRIEVE_SECRET` missing/wrong/correct, per-side retrieve CORS, no-Origin retrieval,
+and per-side preflight.
+
+**Deploy status.** Worker not deployed: no Cloudflare account or credentials are available in
+this environment. Documentation and the homepage are committed to `main` for GitHub Pages; the
+Worker behavior remains verified only against local `wrangler dev`.

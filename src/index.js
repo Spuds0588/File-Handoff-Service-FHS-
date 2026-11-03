@@ -131,14 +131,27 @@ function requestSource(request) {
   return null;
 }
 
-function resolveCors(request, cfg) {
-  if (cfg.allowedDomains.length === 0) return { origin: "*", blocked: false };
+function parseDomainList(raw) {
+  return parseList(raw).map(normalizeDomainEntry).filter(Boolean);
+}
+
+function resolveCors(request, allowedDomains) {
+  if (allowedDomains.length === 0) return { origin: "*", blocked: false };
 
   const source = requestSource(request);
   if (!source) return { origin: null, blocked: false };
 
-  const allowed = cfg.allowedDomains.some((rule) => hostnameMatches(source.hostname, rule));
+  const allowed = allowedDomains.some((rule) => hostnameMatches(source.hostname, rule));
   return { origin: allowed ? source.origin : null, blocked: !allowed };
+}
+
+/** Pick the domain filter that belongs to the route being called. */
+function corsForRequest(request, url, cfg) {
+  if (url.pathname === "/upload") return resolveCors(request, cfg.allowedUploadDomains);
+  if (url.pathname.startsWith("/retrieve/")) {
+    return resolveCors(request, cfg.allowedRetrieveDomains);
+  }
+  return resolveCors(request, cfg.allowedDomains);
 }
 
 function withCors(response, cors) {
@@ -170,6 +183,16 @@ function preflight(cors) {
 
 function readConfig(env) {
   const ttlSeconds = intVar(env?.TTL_SECONDS, DEFAULTS.ttlSeconds, 5, 3600);
+  const allowedDomains = parseDomainList(env?.ALLOWED_DOMAINS);
+  const allowedUploadDomains =
+    env?.ALLOWED_UPLOAD_DOMAINS !== undefined
+      ? parseDomainList(env.ALLOWED_UPLOAD_DOMAINS)
+      : allowedDomains;
+  const allowedRetrieveDomains =
+    env?.ALLOWED_RETRIEVE_DOMAINS !== undefined
+      ? parseDomainList(env.ALLOWED_RETRIEVE_DOMAINS)
+      : allowedDomains;
+
   return {
     ttlSeconds,
     ttlMs: ttlSeconds * 1000,
@@ -186,9 +209,11 @@ function readConfig(env) {
       MAX_CHUNK_BYTES,
     ),
     allowedContentTypes: parseList(env?.ALLOWED_CONTENT_TYPES),
-    allowedDomains: parseList(env?.ALLOWED_DOMAINS)
-      .map(normalizeDomainEntry)
-      .filter(Boolean),
+    allowedDomains,
+    allowedUploadDomains,
+    allowedRetrieveDomains,
+    uploadSecretRequired: Boolean(env?.UPLOAD_SECRET),
+    retrieveSecretRequired: Boolean(env?.RETRIEVE_SECRET),
   };
 }
 
@@ -266,7 +291,12 @@ function descriptor(origin, cfg) {
     },
     filters: {
       allowedContentTypes: cfg.allowedContentTypes.length ? cfg.allowedContentTypes : "any",
-      allowedDomains: cfg.allowedDomains.length ? cfg.allowedDomains : "any",
+      uploadDomains: cfg.allowedUploadDomains.length ? cfg.allowedUploadDomains : "any",
+      retrieveDomains: cfg.allowedRetrieveDomains.length ? cfg.allowedRetrieveDomains : "any",
+    },
+    auth: {
+      uploadSecretRequired: cfg.uploadSecretRequired,
+      retrieveSecretRequired: cfg.retrieveSecretRequired,
     },
     notes: [
       "Payloads are held only in Durable Object memory and dropped on first read or TTL expiry.",
@@ -408,7 +438,21 @@ async function handleUpload(request, env, cfg, origin) {
 /* GET /retrieve/:token                                                */
 /* ------------------------------------------------------------------ */
 
-async function handleRetrieve(token, env) {
+async function handleRetrieve(request, token, env) {
+  if (env.RETRIEVE_SECRET) {
+    const auth = request.headers.get("Authorization") || "";
+    if (!safeEqual(auth, `Bearer ${env.RETRIEVE_SECRET}`)) {
+      return json(
+        {
+          error:
+            "Unauthorized. GET /retrieve/:token requires 'Authorization: Bearer <RETRIEVE_SECRET>'.",
+        },
+        401,
+        { "WWW-Authenticate": "Bearer" },
+      );
+    }
+  }
+
   if (!TOKEN_RE.test(token)) {
     return json({ error: "Invalid or missing handoff token." }, 400);
   }
@@ -485,7 +529,7 @@ async function route(request, env, cfg, url) {
   if (url.pathname.startsWith("/retrieve/")) {
     const token = url.pathname.slice("/retrieve/".length);
     if (request.method !== "GET") return methodNotAllowed("GET");
-    return handleRetrieve(token, env);
+    return handleRetrieve(request, token, env);
   }
 
   return json({ error: "Not found.", routes: ROUTES }, 404);
@@ -495,7 +539,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const cfg = readConfig(env);
-    const cors = resolveCors(request, cfg);
+    const cors = corsForRequest(request, url, cfg);
 
     console.log(`[FHS][ROUTER] ${request.method} ${url.pathname}`);
 

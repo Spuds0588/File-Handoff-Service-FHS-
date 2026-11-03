@@ -14,24 +14,24 @@ The repository is also a GitHub template. `index.html` and `assets/` at the root
 2. **Single use.** The first successful `GET /retrieve/:token` consumes the handoff. Every later request must return `410`.
 3. **No payload in logs or responses.** Log token prefixes, byte counts, and statuses only. Never log bodies, filenames, or document contents.
 4. **Bounded memory.** Uploads and downloads stream. Chunks are one Durable Object each. Keep chunk size ≤ 16 MB, total payload ≤ 90 MB, and never buffer a whole payload in the gateway isolate.
-5. **No secrets in the repo.** `UPLOAD_SECRET` is a Wrangler secret or a local env value. Never commit `.dev.vars`, `.env`, or credentials, and never ask a user to paste an API token into chat.
+5. **No secrets in the repo.** `UPLOAD_SECRET` and `RETRIEVE_SECRET` are Wrangler secrets or local env values. Never commit `.dev.vars`, `.env`, or credentials, and never ask a user to paste an API token into chat.
 6. **Response hygiene.** All responses carry `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. Retrieved files are `Content-Disposition: attachment`.
 7. **Migrations are append-only.** Do not edit the existing `tag: "v1"` migration. Add a new tag for a new class.
 8. **Honest docs.** Do not claim durability, physical RAM zeroing, certification, or compliance that the platform cannot provide. The README's "Honest limits" section is load-bearing.
-9. **Filters default open.** `MAX_PAYLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, and `ALLOWED_DOMAINS` must work with no configuration. Content-Type and browser Origin/Referer checks are advisory filters, never authentication.
+9. **Filters default open and sides are independent.** `MAX_PAYLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, `ALLOWED_DOMAINS`, `ALLOWED_UPLOAD_DOMAINS`, and `ALLOWED_RETRIEVE_DOMAINS` must work with no configuration. `ALLOWED_DOMAINS` is a shared fallback; side-specific domain lists override it. Content-Type and browser Origin/Referer checks are advisory filters; `UPLOAD_SECRET` and `RETRIEVE_SECRET` are the bearer gates.
 
 ## Commands
 
 ```bash
 npm install            # installs wrangler (pinned; requires Node 20.3+)
-npm test               # setup dry-run, end-to-end (127.0.0.1:8799), and filters (127.0.0.1:8800)
+npm test               # setup dry-run, end-to-end (:8799), filters (:8800), sides (:8801-:8803)
 npm run setup          # deploy this local checkout (sets UPLOAD_SECRET outside the repo)
 npm run dev            # local server on 127.0.0.1:8787
 npx wrangler deploy    # deploy the Worker (needs wrangler login or CLOUDFLARE_API_TOKEN)
 npm run tail           # stream production logs
 ```
 
-`npm test` needs no Cloudflare account. The end-to-end suite starts a server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret); the filter suite starts a second one with a MIME allowlist, a domain allowlist, and a 1 MB cap. Both are killed afterwards. It must pass before you commit.
+`npm test` needs no Cloudflare account. The end-to-end suite starts a server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret); the filter suite starts a second one with a MIME allowlist, a shared domain allowlist, and a 1 MB cap; the sides suite starts three more for both-sides, upload-only, and retrieve-only configurations. All are killed afterwards. It must pass before you commit.
 
 ## Deploying
 
@@ -44,7 +44,8 @@ npm run tail           # stream production logs
 add this code or any secret to it.
 
 - Secrets must never enter a repo. `UPLOAD_SECRET` comes from the environment or from
-  `~/.fhs/upload-secret` (mode 600); `CLOUDFLARE_API_TOKEN` stays in the environment. Never print a
+  `~/.fhs/upload-secret` (mode 600); `RETRIEVE_SECRET` is not managed by the script and must be set
+  with `wrangler secret put`; `CLOUDFLARE_API_TOKEN` stays in the environment. Never print a
   secret value.
 - The script checks out to `os.tmpdir()` and removes the checkout unless `--keep` is passed.
 - `--dry-run --repo .` must stay offline and side-effect free. `test/setup.test.mjs` guards it.
@@ -57,7 +58,7 @@ This machine is memory-constrained. Before you report a task complete:
 ```bash
 # 1. Stop every server you started, by recorded PID (never pkill -f patterns)
 kill <pid>
-lsof -i:8787 -i:8799 -i:8800 2>/dev/null   # must print nothing
+lsof -i:8787 -i:8799 -i:8800 -i:8801 -i:8802 -i:8803 2>/dev/null   # must print nothing
 
 # 2. Remove transient state and dependencies
 rm -rf node_modules .wrangler
@@ -84,7 +85,7 @@ git status --short                   # only intended changes
 
 Add checks to `test/e2e.test.mjs` when behavior changes. Keep the suite self-contained: spawn `wrangler dev`, wait for HTTP readiness (never rely on a banner), assert with `node:assert/strict`, and always tear the server down. Cover the happy path, single-use semantics, expiry, size cap, and method/route errors.
 
-`test/filters.test.mjs` covers configured behavior: MIME allowlists (blocked uploads return `415`), browser-origin allowlists with CORS and preflight (blocked origins return `403`), and the payload cap (`413`). `test/e2e.test.mjs` must keep proving the defaults are open: no MIME or domain configuration, wildcard CORS, and uploads without `Origin`.
+`test/filters.test.mjs` covers shared-fallback behavior: MIME allowlists (blocked uploads return `415`), browser-origin allowlists with CORS and preflight (blocked origins return `403`), and the payload cap (`413`). `test/sides.test.mjs` covers both-sides, upload-only, and retrieve-only configurations, including `RETRIEVE_SECRET` and per-side preflight. `test/e2e.test.mjs` must keep proving the defaults are open: no MIME or domain configuration, wildcard CORS, no retrieve secret, and uploads without `Origin`.
 
 ## Site guidance
 
