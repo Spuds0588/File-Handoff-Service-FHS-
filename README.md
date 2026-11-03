@@ -35,6 +35,31 @@ export FHS=https://file-handoff-service.YOUR-SUBDOMAIN.workers.dev
 curl -sS "$FHS/"
 ```
 
+### From an agent working in another repository
+
+If the agent is already inside another project and must not clone this one, run the setup script.
+It checks out FHS into a temporary directory, deploys it, sets the upload secret, verifies a real
+handoff, and deletes the checkout. Nothing is written into your project.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Spuds0588/File-Handoff-Service-FHS-/main/scripts/setup.mjs -o /tmp/fhs-setup.mjs
+node /tmp/fhs-setup.mjs --dry-run   # prints the plan, changes nothing
+node /tmp/fhs-setup.mjs
+```
+
+Requires Node 20.3+, git, and `npx wrangler login` (or `CLOUDFLARE_API_TOKEN` in the environment).
+The generated upload secret is stored at `~/.fhs/upload-secret` with mode 600, outside your
+repository, and its value is never printed. Set `UPLOAD_SECRET` in the environment to use your own
+value; `FHS_SECRET_FILE` changes the location. `--keep` keeps the temporary checkout for
+inspection, and `--ref` deploys a branch or tag other than `main`.
+
+### Where secrets live
+
+- `UPLOAD_SECRET` is a Worker secret, set by the setup script or `wrangler secret put`. It is never
+  written to `wrangler.jsonc` or any committed file.
+- `CLOUDFLARE_API_TOKEN`, if used, is read from the environment.
+- `.dev.vars` is local-only and gitignored; `.dev.vars.example` is a template with no value.
+
 ## How it works
 
 ```
@@ -56,7 +81,7 @@ Service B ── GET /retrieve/:token ──────────────
 git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs
 cd fhs
 npm install
-npm test        # boots wrangler dev on 127.0.0.1:8799 and exercises the API
+npm test        # setup dry-run + end-to-end suite (boots wrangler dev on 127.0.0.1:8799)
 npm run dev     # manual local server on 127.0.0.1:8787
 ```
 
@@ -134,7 +159,9 @@ Set plain values under `vars` in `wrangler.jsonc` and redeploy. Use `npx wrangle
 ```
 index.html, assets/, robots.txt, sitemap.xml, llms.txt   static site served by GitHub Pages
 src/index.js                                             Worker + Durable Object
+scripts/setup.mjs                                        deploy from another repo, no secrets in it
 test/e2e.test.mjs                                        end-to-end suite (wrangler dev)
+test/setup.test.mjs                                      offline dry-run check for the setup script
 wrangler.jsonc                                           bindings, migration, vars
 AGENTS.md                                                rules for agents working in this repo
 todo.md, history.md                                      backlog and work log

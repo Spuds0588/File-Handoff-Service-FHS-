@@ -48,6 +48,11 @@ Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set a
 One-click deploy (clones into your GitHub account, provisions the Durable Object, no required fields; set `UPLOAD_SECRET` after deploy):
 https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-
 
+From an agent working in another repository, without adding files or secrets to it:
+https://raw.githubusercontent.com/Spuds0588/File-Handoff-Service-FHS-/main/scripts/setup.mjs
+
+The script uses a temporary checkout, writes the generated upload secret to `~/.fhs/upload-secret` (mode 600), verifies upload/retrieve/410, and removes the checkout.
+
 Or from the CLI:
 
 ```bash

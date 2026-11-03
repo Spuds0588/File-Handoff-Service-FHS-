@@ -23,7 +23,8 @@ The repository is also a GitHub template. `index.html` and `assets/` at the root
 
 ```bash
 npm install            # installs wrangler (pinned; requires Node 20.3+)
-npm test               # end-to-end suite; boots wrangler dev on 127.0.0.1:8799
+npm test               # setup dry-run, then the end-to-end suite on 127.0.0.1:8799
+npm run setup          # deploy this local checkout (sets UPLOAD_SECRET outside the repo)
 npm run dev            # local server on 127.0.0.1:8787
 npx wrangler deploy    # deploy the Worker (needs wrangler login or CLOUDFLARE_API_TOKEN)
 npm run tail           # stream production logs
@@ -35,6 +36,18 @@ npm run tail           # stream production logs
 
 - **Worker:** `npx wrangler deploy`. Without `wrangler login` or `CLOUDFLARE_API_TOKEN` in the environment it will fail; report that instead of inventing credentials. This repo's owner does not keep Cloudflare credentials in the repo.
 - **Homepage:** commit to `main`; GitHub Pages publishes from the repository root (`.nojekyll` disables Jekyll). Keep asset and link URLs relative (`assets/styles.css`, `favicon.svg`) because the site lives under `/File-Handoff-Service-FHS-/`. Absolute URLs appear only in canonical, Open Graph, sitemap, and structured-data tags.
+
+## Setup script
+
+`scripts/setup.mjs` deploys FHS for callers who are working in another repository and should not
+add this code or any secret to it.
+
+- Secrets must never enter a repo. `UPLOAD_SECRET` comes from the environment or from
+  `~/.fhs/upload-secret` (mode 600); `CLOUDFLARE_API_TOKEN` stays in the environment. Never print a
+  secret value.
+- The script checks out to `os.tmpdir()` and removes the checkout unless `--keep` is passed.
+- `--dry-run --repo .` must stay offline and side-effect free. `test/setup.test.mjs` guards it.
+- Do not make the script write into the current working directory.
 
 ## Dev environment hygiene — required after every task
 

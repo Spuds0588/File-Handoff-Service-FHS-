@@ -12,8 +12,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "setup": "node scripts/setup.mjs --repo .",
     "tail": "wrangler tail",
-    "test": "node test/e2e.test.mjs"
+    "test": "node test/setup.test.mjs && node test/e2e.test.mjs"
   },
   "devDependencies": {
     "wrangler": "4.80.0"

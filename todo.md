@@ -13,6 +13,7 @@
 - [x] Copyable AI agent prompt on the homepage
 - [x] `AGENTS.md`, `todo.md`, `history.md`
 - [x] One-click Deploy to Cloudflare button in the README and on the homepage, with a documented post-deploy `UPLOAD_SECRET` step
+- [x] `scripts/setup.mjs` for agents working in another repo: temporary checkout, secret stored outside the repo, live verification
 
 ## Next
 
@@ -24,3 +25,4 @@
 - [ ] Optional `X-FHS-Filename` so downloads keep their original name
 - [ ] Decide whether `/retrieve` should also accept `Authorization: Bearer` instead of a path token
 - [ ] Add an Open Graph image once there is a design for one
+- [ ] Optional `--vendor <dir>` mode to copy the Worker and config into an existing repo for customization

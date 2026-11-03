@@ -393,6 +393,15 @@ curl -sS -X POST --data-binary @report.pdf \
           <p class="hint">
             Local tests need no Cloudflare account at all: run <code>npm test</code>.
           </p>
+
+          <p class="step-label">Working in another repo?</p>
+          <pre><code>curl -fsSL https://raw.githubusercontent.com/Spuds0588/File-Handoff-Service-FHS-/main/scripts/setup.mjs -o /tmp/fhs-setup.mjs
+node /tmp/fhs-setup.mjs</code></pre>
+          <p class="hint">
+            The setup script checks FHS out to a temporary directory, deploys it, sets the upload
+            secret outside your repo, verifies a real handoff, and removes the checkout. Your
+            project is left untouched.
+          </p>
         </div>
       </section>
 
@@ -515,7 +524,7 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
 FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Object class. It accepts a binary upload, returns a single-use handoff URL, streams the bytes back exactly once, and keeps nothing on disk.
 
 1. Check that Node 20.3 or newer is available. If it is not, tell me and stop.
-2. Get the code: git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs, then run npm install inside it.
+2. Get the code. If you are working inside another repository that must stay clean, fetch scripts/setup.mjs from the FHS repository and run it with node. Otherwise clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git into fhs and run npm install inside it.
 3. Read AGENTS.md and wrangler.jsonc. Keep the HANDOFF_VAULT binding, the HandoffVault class, and the v1 migration exactly as they are.
 4. Run npx wrangler whoami. If it is not authenticated, run npx wrangler login and tell me to finish the browser step. Do not ask me for an API token in chat and do not write credentials into the repo.
 5. Run npx wrangler deploy and capture the workers.dev base URL it prints.

@@ -90,3 +90,19 @@ open until the TTL drops the bytes.
 This is as close to one click as the platform allows: one GitHub authorization, no required
 fields, then a live `workers.dev` URL. A secure-by-default flow would need the platform to
 generate or require a secret at deploy time, which it does not do for this template.
+
+## 2026-11-03 — Setup script for deploying from another repository
+
+Added `scripts/setup.mjs` so an agent working in a different repository can deploy FHS without
+cloning it into that repository. The script checks the repo out under `os.tmpdir()`, installs,
+deploys, sets `UPLOAD_SECRET`, verifies a real upload/retrieve/410 against the live URL, and
+removes the checkout.
+
+Secrets stay outside the caller's repo: `UPLOAD_SECRET` is read from the environment or reused
+or generated at `~/.fhs/upload-secret` (dir 700, file 600), and the value is never printed.
+`CLOUDFLARE_API_TOKEN`, if present, stays in the environment. `--dry-run` is offline and
+side-effect free; `--keep` preserves the checkout and `--ref` selects a branch or tag.
+
+Added `test/setup.test.mjs` for the dry-run path and changed `npm test` to run it before the
+existing end-to-end suite. Updated the README, homepage (deploy section and agent prompt),
+`llms.txt`, and `AGENTS.md`.
