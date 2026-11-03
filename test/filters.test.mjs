@@ -1,5 +1,5 @@
 /**
- * Filter tests: content-type allowlist, browser domain allowlist with CORS,
+ * Filter tests: content-type allowlist, per-side domain allowlists with CORS,
  * and the payload cap. Default-open behavior is covered by test/e2e.test.mjs.
  */
 

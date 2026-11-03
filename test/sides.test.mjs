@@ -1,7 +1,7 @@
 /**
  * Side-specific tests: upload and retrieve have independent domain filters and
- * optional secrets. The default-open e2e suite and the shared-fallback filter
- * suite cover the other configurations.
+ * optional secrets. The default-open e2e suite and the filter suite cover the
+ * other configurations.
  */
 
 import { spawn } from "node:child_process";

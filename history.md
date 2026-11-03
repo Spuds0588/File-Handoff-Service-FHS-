@@ -187,3 +187,18 @@ still covers both-sides, upload-only, and retrieve-only behavior.
 
 **Deploy status.** Worker not deployed; no Cloudflare credentials are available. Homepage and
 docs are committed to `main` for GitHub Pages.
+
+## 2026-11-03 — Docs consistency after removing the fallback
+
+Cleaned up the last stale references in current docs and test comments. The README now describes
+only `ALLOWED_UPLOAD_DOMAINS` and `ALLOWED_RETRIEVE_DOMAINS`; its summary no longer implies that
+size and MIME filters apply to retrieval. The `llms.txt` summary says the same. `AGENTS.md` and
+the suite comments no longer call the filter suite “shared-fallback,” and the README project
+layout describes the per-side domain tests correctly. Historical entries above still describe the
+fallback while it existed; this entry supersedes them for the current configuration.
+
+**Verification.** Documentation-only change: JSON-LD parses, the visible FAQ matches the eight
+JSON-LD questions, no `ALLOWED_DOMAINS` references remain in current docs/config/test code, and
+`git diff --check` is clean. No runtime code changed; the previous 34 runtime checks remain valid.
+
+**Deploy status.** Worker not deployed. Documentation changes pushed to `main` for GitHub Pages.

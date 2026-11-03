@@ -85,7 +85,7 @@ git status --short                   # only intended changes
 
 Add checks to `test/e2e.test.mjs` when behavior changes. Keep the suite self-contained: spawn `wrangler dev`, wait for HTTP readiness (never rely on a banner), assert with `node:assert/strict`, and always tear the server down. Cover the happy path, single-use semantics, expiry, size cap, and method/route errors.
 
-`test/filters.test.mjs` covers shared-fallback behavior: MIME allowlists (blocked uploads return `415`), browser-origin allowlists with CORS and preflight (blocked origins return `403`), and the payload cap (`413`). `test/sides.test.mjs` covers both-sides, upload-only, and retrieve-only configurations, including `RETRIEVE_SECRET` and per-side preflight. `test/e2e.test.mjs` must keep proving the defaults are open: no MIME or domain configuration, wildcard CORS, no retrieve secret, and uploads without `Origin`.
+`test/filters.test.mjs` covers configured per-side behavior: MIME allowlists (blocked uploads return `415`), browser-origin allowlists with CORS and preflight (blocked origins return `403`), and the payload cap (`413`). `test/sides.test.mjs` covers both-sides, upload-only, and retrieve-only configurations, including `RETRIEVE_SECRET` and per-side preflight. `test/e2e.test.mjs` must keep proving the defaults are open: no MIME or domain configuration, wildcard CORS, no retrieve secret, and uploads without `Origin`.
 
 ## Site guidance
 

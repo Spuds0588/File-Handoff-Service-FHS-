@@ -15,7 +15,7 @@
 - Payloads are split into 8 MB chunks, one Durable Object each, and only ever exist in isolate memory.
 - The TTL clock starts when the upload is sealed: 60 seconds by default, 5 to 3600 configurable.
 - Default payload ceiling is 25 MB; configurable up to 90 MB, under the Workers 100 MB request-body limit.
-- Open-by-default, independently configurable filters for upload and retrieve: domain allowlists, optional bearer secrets, payload size, and MIME type.
+- Open-by-default, independently configurable controls for upload and retrieve: domain allowlists and optional bearer secrets, plus upload-only payload-size and MIME-type filters.
 
 ## What it is for
 

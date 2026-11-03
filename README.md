@@ -9,7 +9,7 @@ An ephemeral, single-use, zero-retention binary relay built on Cloudflare Worker
 - 25 MB default payload, 60 second default TTL, both configurable.
 - Chunked streaming in both directions, so no isolate holds the whole file.
 - Optional bearer tokens on upload and retrieve. No payload contents in logs.
-- Independent, open-by-default filters for both sides: payload size, MIME types, browser origins, and bearer secrets.
+- Independent, open-by-default controls for both sides: per-side browser origins and optional bearer secrets, plus upload-only size and MIME filters.
 
 ## Deploy
 
@@ -211,7 +211,7 @@ index.html, assets/, robots.txt, sitemap.xml, llms.txt   static site served by G
 src/index.js                                             Worker + Durable Object
 scripts/setup.mjs                                        deploy from another repo, no secrets in it
 test/e2e.test.mjs                                        end-to-end suite (wrangler dev)
-test/filters.test.mjs                                    shared-fallback MIME, domain/CORS, and payload-cap tests
+test/filters.test.mjs                                    MIME, per-side domain/CORS, and payload-cap tests
 test/sides.test.mjs                                      both-sides, upload-only, and retrieve-only tests
 test/setup.test.mjs                                      offline dry-run check for the setup script
 wrangler.jsonc                                           bindings, migration, vars
