@@ -151,7 +151,7 @@ function corsForRequest(request, url, cfg) {
   if (url.pathname.startsWith("/retrieve/")) {
     return resolveCors(request, cfg.allowedRetrieveDomains);
   }
-  return resolveCors(request, cfg.allowedDomains);
+  return resolveCors(request, []);
 }
 
 function withCors(response, cors) {
@@ -183,15 +183,8 @@ function preflight(cors) {
 
 function readConfig(env) {
   const ttlSeconds = intVar(env?.TTL_SECONDS, DEFAULTS.ttlSeconds, 5, 3600);
-  const allowedDomains = parseDomainList(env?.ALLOWED_DOMAINS);
-  const allowedUploadDomains =
-    env?.ALLOWED_UPLOAD_DOMAINS !== undefined
-      ? parseDomainList(env.ALLOWED_UPLOAD_DOMAINS)
-      : allowedDomains;
-  const allowedRetrieveDomains =
-    env?.ALLOWED_RETRIEVE_DOMAINS !== undefined
-      ? parseDomainList(env.ALLOWED_RETRIEVE_DOMAINS)
-      : allowedDomains;
+  const allowedUploadDomains = parseDomainList(env?.ALLOWED_UPLOAD_DOMAINS);
+  const allowedRetrieveDomains = parseDomainList(env?.ALLOWED_RETRIEVE_DOMAINS);
 
   return {
     ttlSeconds,
@@ -209,7 +202,6 @@ function readConfig(env) {
       MAX_CHUNK_BYTES,
     ),
     allowedContentTypes: parseList(env?.ALLOWED_CONTENT_TYPES),
-    allowedDomains,
     allowedUploadDomains,
     allowedRetrieveDomains,
     uploadSecretRequired: Boolean(env?.UPLOAD_SECRET),

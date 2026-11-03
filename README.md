@@ -150,9 +150,8 @@ Set plain values under `vars` in `wrangler.jsonc` and redeploy. Use `npx wrangle
 | `MAX_PAYLOAD_BYTES` | `26214400` (25 MB) | Up to `94371840` (90 MB). Upload only. |
 | `CHUNK_SIZE_BYTES` | `8388608` (8 MB) | 64 KB–16 MB, one Durable Object per chunk. |
 | `ALLOWED_CONTENT_TYPES` | unset (any) | Comma-separated MIME types; `image/*` wildcard; blocked uploads get `415`. Upload only. |
-| `ALLOWED_DOMAINS` | unset (any) | Shared browser Origin/Referer fallback for both sides; side-specific variables override it. |
-| `ALLOWED_UPLOAD_DOMAINS` | inherits shared | Upload-only hostnames; `*.example.com` wildcard; blocked uploads get `403`. |
-| `ALLOWED_RETRIEVE_DOMAINS` | inherits shared | Retrieve-only hostnames; `*.example.com` wildcard; blocked retrievals get `403`. |
+| `ALLOWED_UPLOAD_DOMAINS` | unset (any) | Upload-only browser Origin/Referer hostnames; `*.example.com` wildcard; blocked uploads get `403`. |
+| `ALLOWED_RETRIEVE_DOMAINS` | unset (any) | Retrieve-only browser Origin/Referer hostnames; `*.example.com` wildcard; blocked retrievals get `403`. |
 | `UPLOAD_SECRET` | unset | When set, uploads need `Authorization: Bearer <secret>`; retrieval is unaffected. |
 | `RETRIEVE_SECRET` | unset | When set, retrievals need `Authorization: Bearer <secret>`; upload is unaffected. |
 
@@ -182,8 +181,7 @@ npx wrangler secret put RETRIEVE_SECRET  # GET /retrieve/:token
 | unset | set | Anyone can upload; retrieval requires the configured gate. |
 | set | set | Both directions are gated. |
 
-- `ALLOWED_UPLOAD_DOMAINS` and `ALLOWED_RETRIEVE_DOMAINS` are independent browser `Origin` allowlists, with `Referer` as a fallback. Exact hosts and `*.example.com` wildcards work; blocked requests get `403`, and allowed origins receive matching CORS headers, including preflight.
-- `ALLOWED_DOMAINS` is a shared fallback for both sides. A side-specific variable replaces it for that side. Setting a side-specific variable to an empty value opens that side even when the shared list is set.
+- `ALLOWED_UPLOAD_DOMAINS` and `ALLOWED_RETRIEVE_DOMAINS` are independent browser `Origin` allowlists, with `Referer` as a fallback. Exact hosts and `*.example.com` wildcards work. Unset means any origin; blocked requests get `403`, and allowed origins receive matching CORS headers, including preflight.
 - `UPLOAD_SECRET` and `RETRIEVE_SECRET` are independent bearer gates. Each returns `401` for a missing or wrong token; set one, both, or neither. Retrieval still requires the single-use handoff token.
 - Requests with neither `Origin` nor `Referer` are allowed because server-to-server clients do not send them. Domain checks are browser controls, not authentication; use the secrets for that. A browser address-bar download cannot send `Authorization`, so `RETRIEVE_SECRET` requires a client that can set headers.
 - `MAX_PAYLOAD_BYTES` and `ALLOWED_CONTENT_TYPES` apply to uploads only. The size cap is checked from `Content-Length` and enforced again while streaming (`413`); the MIME filter returns `415`.

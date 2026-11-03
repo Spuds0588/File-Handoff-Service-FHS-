@@ -24,8 +24,6 @@
   //   "CHUNK_SIZE_BYTES": "8388608",
   //   "ALLOWED_CONTENT_TYPES": "application/pdf,image/*",
   //   "ALLOWED_UPLOAD_DOMAINS": "app.example.com,*.example.org",
-  //   "ALLOWED_RETRIEVE_DOMAINS": "consumer.example.org",
-  //   // Shared fallback for both sides when the side-specific vars are absent:
-  //   "ALLOWED_DOMAINS": "shared.example.com"
+  //   "ALLOWED_RETRIEVE_DOMAINS": "consumer.example.org"
   // }
 }

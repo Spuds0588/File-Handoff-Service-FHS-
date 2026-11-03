@@ -161,7 +161,7 @@
                 "name": "Can I restrict who can upload or retrieve a handoff?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Yes, independently. ALLOWED_UPLOAD_DOMAINS and ALLOWED_RETRIEVE_DOMAINS accept hostnames such as app.example.com,*.example.org for browser Origin/Referer checks; ALLOWED_DOMAINS is a shared fallback. Blocked origins return 403. UPLOAD_SECRET and RETRIEVE_SECRET optionally require Authorization: Bearer on their side, independently. ALLOWED_CONTENT_TYPES and MAX_PAYLOAD_BYTES apply to uploads. Domain checks only govern browsers; use the secrets for real authorization."
+                  "text": "Yes, independently. ALLOWED_UPLOAD_DOMAINS and ALLOWED_RETRIEVE_DOMAINS accept hostnames such as app.example.com,*.example.org for browser Origin/Referer checks. Blocked origins return 403. UPLOAD_SECRET and RETRIEVE_SECRET optionally require Authorization: Bearer on their side, independently. ALLOWED_CONTENT_TYPES and MAX_PAYLOAD_BYTES apply to uploads. Domain checks only govern browsers; use the secrets for real authorization."
                 }
               },
               {
@@ -512,18 +512,13 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
                   <td>Upload only. Comma-separated MIME types; <code>image/*</code> wildcards; blocked uploads get 415.</td>
                 </tr>
                 <tr>
-                  <td><code>ALLOWED_DOMAINS</code></td>
-                  <td>unset (any)</td>
-                  <td>Shared browser fallback for both sides; side-specific variables override it.</td>
-                </tr>
-                <tr>
                   <td><code>ALLOWED_UPLOAD_DOMAINS</code></td>
-                  <td>inherits shared</td>
+                  <td>unset (any)</td>
                   <td>Upload-only Origin/Referer hosts; <code>*.example.com</code>; blocked uploads get 403.</td>
                 </tr>
                 <tr>
                   <td><code>ALLOWED_RETRIEVE_DOMAINS</code></td>
-                  <td>inherits shared</td>
+                  <td>unset (any)</td>
                   <td>Retrieve-only Origin/Referer hosts; <code>*.example.com</code>; blocked retrievals get 403.</td>
                 </tr>
                 <tr>
@@ -617,8 +612,8 @@ FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Objec
           <p>
             Yes, independently. <code>ALLOWED_UPLOAD_DOMAINS</code> and
             <code>ALLOWED_RETRIEVE_DOMAINS</code> accept hostnames such as
-            <code>app.example.com,*.example.org</code> for browser Origin/Referer checks;
-            <code>ALLOWED_DOMAINS</code> is a shared fallback. Blocked origins return 403.
+            <code>app.example.com,*.example.org</code> for browser Origin/Referer checks.
+            Blocked origins return 403.
             <code>UPLOAD_SECRET</code> and <code>RETRIEVE_SECRET</code> optionally require
             <code>Authorization: Bearer</code> on their side, independently.
             <code>ALLOWED_CONTENT_TYPES</code> and <code>MAX_PAYLOAD_BYTES</code> apply to

@@ -173,3 +173,17 @@ and per-side preflight.
 **Deploy status.** Worker not deployed: no Cloudflare account or credentials are available in
 this environment. Documentation and the homepage are committed to `main` for GitHub Pages; the
 Worker behavior remains verified only against local `wrangler dev`.
+
+## 2026-11-03 — Remove the pre-deploy shared-domain fallback
+
+Nothing has been deployed yet, so `ALLOWED_DOMAINS` was deleted instead of being maintained as a
+compatibility layer. `ALLOWED_UPLOAD_DOMAINS` and `ALLOWED_RETRIEVE_DOMAINS` are now the only
+domain filters; each is independently optional, and unset means open on that side. The fallback
+and override rules are gone from the Worker, descriptor, tests, configuration examples, and docs.
+
+**Verification.** `npm test` → exit 0: setup dry-run ok, end-to-end 11/11, filters 11/11, sides
+12/12 (34 runtime checks). The filter suite now sets both side-specific lists; the sides suite
+still covers both-sides, upload-only, and retrieve-only behavior.
+
+**Deploy status.** Worker not deployed; no Cloudflare credentials are available. Homepage and
+docs are committed to `main` for GitHub Pages.

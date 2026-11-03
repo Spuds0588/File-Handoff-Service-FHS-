@@ -18,7 +18,7 @@ The repository is also a GitHub template. `index.html` and `assets/` at the root
 6. **Response hygiene.** All responses carry `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. Retrieved files are `Content-Disposition: attachment`.
 7. **Migrations are append-only.** Do not edit the existing `tag: "v1"` migration. Add a new tag for a new class.
 8. **Honest docs.** Do not claim durability, physical RAM zeroing, certification, or compliance that the platform cannot provide. The README's "Honest limits" section is load-bearing.
-9. **Filters default open and sides are independent.** `MAX_PAYLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, `ALLOWED_DOMAINS`, `ALLOWED_UPLOAD_DOMAINS`, and `ALLOWED_RETRIEVE_DOMAINS` must work with no configuration. `ALLOWED_DOMAINS` is a shared fallback; side-specific domain lists override it. Content-Type and browser Origin/Referer checks are advisory filters; `UPLOAD_SECRET` and `RETRIEVE_SECRET` are the bearer gates.
+9. **Filters default open and sides are independent.** `MAX_PAYLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, `ALLOWED_UPLOAD_DOMAINS`, and `ALLOWED_RETRIEVE_DOMAINS` must work with no configuration. Content-Type and browser Origin/Referer checks are advisory filters; `UPLOAD_SECRET` and `RETRIEVE_SECRET` are the bearer gates.
 
 ## Commands
 
@@ -31,7 +31,7 @@ npx wrangler deploy    # deploy the Worker (needs wrangler login or CLOUDFLARE_A
 npm run tail           # stream production logs
 ```
 
-`npm test` needs no Cloudflare account. The end-to-end suite starts a server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret); the filter suite starts a second one with a MIME allowlist, a shared domain allowlist, and a 1 MB cap; the sides suite starts three more for both-sides, upload-only, and retrieve-only configurations. All are killed afterwards. It must pass before you commit.
+`npm test` needs no Cloudflare account. The end-to-end suite starts a server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret); the filter suite starts a second one with a MIME allowlist, per-side domain allowlists, and a 1 MB cap; the sides suite starts three more for both-sides, upload-only, and retrieve-only configurations. All are killed afterwards. It must pass before you commit.
 
 ## Deploying
 

@@ -48,7 +48,9 @@ const server = spawn(
     "--var",
     "ALLOWED_CONTENT_TYPES:application/pdf,image/*",
     "--var",
-    "ALLOWED_DOMAINS:app.example.com,*.trusted.test",
+    "ALLOWED_UPLOAD_DOMAINS:app.example.com,*.trusted.test",
+    "--var",
+    "ALLOWED_RETRIEVE_DOMAINS:app.example.com,*.trusted.test",
   ],
   {
     cwd: ROOT,

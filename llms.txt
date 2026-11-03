@@ -43,13 +43,12 @@ Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` or `RETR
 | `MAX_PAYLOAD_BYTES` | 26214400 (25 MB) | 1024 to 94371840 (90 MB) |
 | `CHUNK_SIZE_BYTES` | 8388608 (8 MB) | 65536 to 16777216 |
 | `ALLOWED_CONTENT_TYPES` | unset (any) | upload only; comma-separated MIME types; `image/*` wildcard; blocked uploads get 415 |
-| `ALLOWED_DOMAINS` | unset (any) | shared browser Origin/Referer fallback for both sides; side-specific variables override it |
-| `ALLOWED_UPLOAD_DOMAINS` | inherits shared | upload-only browser Origin/Referer hostnames; `*.example.com`; blocked uploads get 403 |
-| `ALLOWED_RETRIEVE_DOMAINS` | inherits shared | retrieve-only browser Origin/Referer hostnames; `*.example.com`; blocked retrievals get 403 |
+| `ALLOWED_UPLOAD_DOMAINS` | unset (any) | upload-only browser Origin/Referer hostnames; `*.example.com`; blocked uploads get 403 |
+| `ALLOWED_RETRIEVE_DOMAINS` | unset (any) | retrieve-only browser Origin/Referer hostnames; `*.example.com`; blocked retrievals get 403 |
 | `UPLOAD_SECRET` | unset | any string; gates POST /upload only; set with `wrangler secret put` |
 | `RETRIEVE_SECRET` | unset | any string; gates GET /retrieve/:token only; set with `wrangler secret put` |
 
-Upload and retrieve filters are independent and open by default. `ALLOWED_DOMAINS` is a shared fallback; the side-specific variables replace it for that side. Domain checks only govern browser Origin/Referer, while `UPLOAD_SECRET` and `RETRIEVE_SECRET` are real bearer gates.
+Upload and retrieve filters are independent and open by default. Domain checks only govern browser Origin/Referer, while `UPLOAD_SECRET` and `RETRIEVE_SECRET` are real bearer gates.
 
 ## Deploy
 
