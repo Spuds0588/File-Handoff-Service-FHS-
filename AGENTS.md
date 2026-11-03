@@ -48,6 +48,11 @@ The suites honor `FHS_TEST_PORT` (default `8799`), `FHS_FILTER_PORT` (`8800`), a
   `deploy/pdf-only.jsonc` for a generic profile or `deploy/simplepdf.jsonc` for the current
   production settings) and deploy with `npx wrangler deploy --config <file>`; use the same flag
   with `wrangler dev` and the setup script.
+- **Shutdown:** `npx wrangler delete` for the default config, or
+  `npx wrangler delete --config <file>` for a profile. This stops the Worker and drops in-memory
+  payloads. If Cloudflare reports a remaining Durable Object namespace, remove it under Workers
+  & Pages → Durable Objects. The account-wide `workers.dev` subdomain is separate; do not delete
+  it to remove one Worker.
 - **Homepage:** commit to `main`; GitHub Pages publishes from the repository root (`.nojekyll` disables Jekyll). Keep asset and link URLs relative (`assets/styles.css`, `favicon.svg`) because the site lives under `/File-Handoff-Service-FHS-/`. Absolute URLs appear only in canonical, Open Graph, sitemap, and structured-data tags.
 
 ## Setup script

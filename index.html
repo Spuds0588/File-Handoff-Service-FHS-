@@ -201,6 +201,14 @@
                   "@type": "Answer",
                   "text": "It needs long-lived, addressable in-memory state. Cloudflare Workers with Durable Objects provides that. A stateless function platform or an object-storage-only backend cannot hold the bytes without writing them to disk, which defeats the design."
                 }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I shut down FHS?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Delete the Worker with npx wrangler delete, or with npx wrangler delete --config deploy/simplepdf.jsonc for that profile. This stops requests and drops in-memory payloads; FHS has no durable payload store. If Cloudflare reports a leftover Durable Object namespace, remove it under Workers & Pages → Durable Objects. The account-wide workers.dev subdomain is separate; do not delete it just to remove one Worker."
+                }
               }
             ]
           }
@@ -221,6 +229,7 @@
         <nav class="site-nav" aria-label="Sections">
           <a href="#what">What it does</a>
           <a href="#deploy">Stand it up</a>
+          <a href="#shutdown">Shut down</a>
           <a href="#api">API</a>
           <a href="#agent">AI prompt</a>
         </nav>
@@ -452,6 +461,30 @@ curl -sS -X POST --data-binary @report.pdf \
             Local tests need no Cloudflare account at all: run <code>npm test</code>.
           </p>
 
+        </div>
+      </section>
+
+      <section class="band" id="shutdown">
+        <div class="wrap">
+          <h2>Shut it down</h2>
+          <p class="sub">
+            Deleting the Worker stops requests immediately and drops any payload still held in
+            memory. FHS never persists payloads, so there is no bucket or database to empty.
+          </p>
+          <pre><code>npx wrangler delete
+# or, for the production profile:
+npx wrangler delete --config deploy/simplepdf.jsonc</code></pre>
+          <p class="hint">
+            The same action is in Workers &amp; Pages → select the Worker → Settings → Delete.
+            If Cloudflare reports a leftover Durable Object namespace, remove it under Workers
+            &amp; Pages → Durable Objects and retry. Worker-scoped secrets stop working. Do not
+            delete the account-wide <code>workers.dev</code> subdomain just to remove one Worker;
+            it affects every Worker on the account.
+          </p>
+          <p class="hint">
+            If the setup script generated <code>~/.fhs/upload-secret</code>, remove that local file
+            too: <code>rm -f ~/.fhs/upload-secret</code>.
+          </p>
         </div>
       </section>
 
@@ -732,6 +765,16 @@ FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Objec
             It needs long-lived, addressable in-memory state. Cloudflare Workers with Durable
             Objects provides that. A stateless function platform or an object-storage-only backend
             cannot hold the bytes without writing them to disk, which defeats the design.
+          </p>
+
+          <h3>How do I shut down FHS?</h3>
+          <p>
+            Delete the Worker with <code>npx wrangler delete</code>, or with
+            <code>npx wrangler delete --config deploy/simplepdf.jsonc</code> for that profile.
+            This stops requests and drops in-memory payloads; FHS has no durable payload store.
+            If Cloudflare reports a leftover Durable Object namespace, remove it under Workers
+            &amp; Pages → Durable Objects. The account-wide <code>workers.dev</code> subdomain is
+            separate; do not delete it just to remove one Worker.
           </p>
         </div>
       </section>

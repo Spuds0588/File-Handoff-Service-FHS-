@@ -16,6 +16,7 @@
 - [x] One-click Deploy to Cloudflare button in the README and on the homepage, with documented post-deploy secret steps
 - [x] `scripts/setup.mjs` for agents working in another repo: temporary checkout, secret stored outside the repo, live verification
 - [x] First-deploy hardening: `10063` guidance, `--config`/`--no-upload-secret`/`--subdomain` setup flags, descriptor-driven MIME probe, and a duplicate PDF profile
+- [x] Shutdown instructions across the README, homepage, `llms.txt`, agent guide, and setup-script output
 
 ## Next
 

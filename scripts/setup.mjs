@@ -564,4 +564,6 @@ if (secret && !envSecret) {
 }
 console.log(`  Config:   ${configFile}`);
 console.log("  Limits:   edit TTL_SECONDS, MAX_PAYLOAD_BYTES, CHUNK_SIZE_BYTES in that config.");
+console.log("  Remove:   Workers & Pages → select the Worker → Settings → Delete.");
+console.log("            FHS stores no payloads; remove a leftover Durable Object namespace if shown.");
 if (tempDir && keep) console.log(`\nKept checkout: ${workDir}`);

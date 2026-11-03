@@ -19,6 +19,7 @@
   // `wrangler secret put UPLOAD_SECRET` and/or `RETRIEVE_SECRET` for bearer gates.
   // Wrangler does not merge configs: copy this file for a separate profile (see
   // deploy/pdf-only.jsonc) and deploy with `--config`.
+  // To stop serving, delete the Worker (`npx wrangler delete`); see README "Shut it down".
   //
   // "vars": {
   //   "TTL_SECONDS": "60",

@@ -154,6 +154,38 @@ node scripts/setup.mjs --repo . --config deploy/pdf-only.jsonc
 The setup script's `--config` path is relative to its checkout. Use a local `--repo .` when the
 profile exists only in your working copy.
 
+## Shut it down
+
+Deleting the Worker stops requests immediately and drops any payloads still held in memory. FHS
+never writes payloads to durable storage, so there is no bucket, database, or object store to
+empty.
+
+For the default Worker:
+
+```bash
+npx wrangler delete
+```
+
+For a profile:
+
+```bash
+npx wrangler delete --config deploy/pdf-only.jsonc
+npx wrangler delete --config deploy/simplepdf.jsonc
+```
+
+The same action is in **Workers & Pages → select the Worker → Settings → Delete**. Deleting the
+Worker removes its route and makes its Worker-scoped secrets unusable. If Cloudflare reports that
+the Worker is still referenced by a Durable Object namespace, remove that namespace under
+**Workers & Pages → Durable Objects** and retry. The namespace is only the container for FHS's
+classes; FHS never writes payloads to Durable Object storage.
+
+A custom domain and the account-wide `workers.dev` subdomain are separate resources. Do not delete
+the subdomain just to remove one Worker: it affects every Worker on the account. For most
+deployments, deleting the Worker is sufficient.
+
+If the setup script generated a local secret at `~/.fhs/upload-secret`, remove that file when the
+service is gone: `rm -f ~/.fhs/upload-secret`.
+
 ## How it works
 
 ```

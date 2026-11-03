@@ -107,6 +107,12 @@ npm test
 
 Run one suite with `npm run test:setup`, `test:e2e`, `test:filters`, or `test:sides`. Defaults are 8799, 8800, and 8801-8803; override with `FHS_TEST_PORT`, `FHS_FILTER_PORT`, and `FHS_SIDES_PORT`.
 
+## Shutting down
+
+Delete the Worker to stop the relay: `npx wrangler delete` for the default config, or `npx wrangler delete --config deploy/simplepdf.jsonc` for the current production profile. The same action is in Workers & Pages → select the Worker → Settings → Delete. This stops requests and drops in-memory payloads; FHS never persists payloads, so there is no bucket or database to empty.
+
+If Cloudflare reports that a Durable Object namespace still references the Worker, remove that namespace under Workers & Pages → Durable Objects and retry. The account-wide `workers.dev` subdomain is separate; do not delete it just to remove one Worker. If `~/.fhs/upload-secret` was generated locally, remove it with `rm -f ~/.fhs/upload-secret`.
+
 ## Agent instructions
 
 Repository rules, invariants, and development environment cleanup steps live in `AGENTS.md`. Work log and backlog are in `history.md` and `todo.md`.
