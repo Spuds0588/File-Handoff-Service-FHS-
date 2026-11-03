@@ -35,6 +35,10 @@ Upload response fields: `token`, `handoffUrl`, `contentType`, `totalBytes`, `tot
 
 Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` or `RETRIEVE_SECRET` is set and the bearer token is missing, 403 disallowed browser origin, 405 wrong method, 410 expired or already consumed, 413 over the payload cap, 415 disallowed content type, 500 internal error.
 
+`409` is internal to a Durable Object (an already-sealed vault or a chunk collision); the public upload path catches it, purges, and returns 500. A retrieval that fails after its 200 headers is a truncated body or network error to the client, not a later 500 response.
+
+Retrieved files carry `Content-Disposition: attachment`, so iframes and embeds download them. To render, `fetch()` the handoff with any required headers, create a Blob, and use `URL.createObjectURL`.
+
 ## Configuration
 
 | Variable | Default | Range |
@@ -42,7 +46,8 @@ Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` or `RETR
 | `TTL_SECONDS` | 60 | 5 to 3600 |
 | `MAX_PAYLOAD_BYTES` | 26214400 (25 MB) | 1024 to 94371840 (90 MB) |
 | `CHUNK_SIZE_BYTES` | 8388608 (8 MB) | 65536 to 16777216 |
-| `ALLOWED_CONTENT_TYPES` | unset (any) | upload only; comma-separated MIME types; `image/*` wildcard; blocked uploads get 415 |
+| `ALLOWED_CONTENT_TYPES` | unset (any) | upload only; comma-separated declared MIME types; `image/*` wildcard; blocked uploads get 415; the declared type is echoed on retrieve |
+| `REQUIRE_PDF_MAGIC` | unset (false) | upload only; `true`, `1`, or `yes` requires uploads declared `application/pdf` to begin with `%PDF-`; blocked uploads get 415 |
 | `ALLOWED_UPLOAD_DOMAINS` | unset (any) | upload-only browser Origin/Referer hostnames; `*.example.com`; blocked uploads get 403 |
 | `ALLOWED_RETRIEVE_DOMAINS` | unset (any) | retrieve-only browser Origin/Referer hostnames; `*.example.com`; blocked retrievals get 403 |
 | `UPLOAD_SECRET` | unset | any string; gates POST /upload only; set with `wrangler secret put` |
@@ -50,7 +55,19 @@ Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` or `RETR
 
 Upload and retrieve filters are independent and open by default. Domain checks only govern browser Origin/Referer, while `UPLOAD_SECRET` and `RETRIEVE_SECRET` are real bearer gates.
 
+## Which control constrains which consumer
+
+| Consumer | Constrained by | Not constrained by |
+| --- | --- | --- |
+| A page fetching the handoff | `ALLOWED_*_DOMAINS`; its browser sends the real Origin, and a blocked origin gets 403 with no CORS | a User-Agent list; FHS never checks one |
+| A backend or proxy | the handoff token and `RETRIEVE_SECRET` if set; it sends no Origin, so domain lists are inert | domain allowlists |
+| A person pasting the URL into the address bar | the handoff token only; browsers cannot attach Authorization, so `RETRIEVE_SECRET` makes the URL unusable there | domain allowlists and `RETRIEVE_SECRET` |
+
+MIME filtering trusts the declared `Content-Type`. `REQUIRE_PDF_MAGIC=true` additionally checks the first five bytes of a declared PDF for `%PDF-` before any chunk is stored. It is a signature check, not a malware scan, and the declared type is still echoed on retrieve.
+
 ## Deploy
+
+First deploy on a new Cloudflare account: if `wrangler deploy` fails with code `10063`, open Workers & Pages in the dashboard once to create the `workers.dev` subdomain. The setup script's `--subdomain <name>` can create it when `CLOUDFLARE_API_TOKEN` is set; Wrangler's OAuth token cannot call that REST API. A new subdomain may reject TLS for up to a minute after the first deploy while its certificate is issued.
 
 One-click deploy (clones into your GitHub account, provisions the Durable Object, no required fields; set `UPLOAD_SECRET` and/or `RETRIEVE_SECRET` after deploy):
 https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-
@@ -58,7 +75,16 @@ https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Han
 From an agent working in another repository, without adding files or secrets to it:
 https://raw.githubusercontent.com/Spuds0588/File-Handoff-Service-FHS-/main/scripts/setup.mjs
 
-The script uses a temporary checkout, writes the generated upload secret to `~/.fhs/upload-secret` (mode 600), verifies upload/retrieve/410, and removes the checkout. It does not manage `RETRIEVE_SECRET`; set that separately if you want to gate retrieval.
+The script uses a temporary checkout, writes the generated upload secret to `~/.fhs/upload-secret` (mode 600), verifies upload/retrieve/410, and removes the checkout. It reads `GET /` first and probes with the deployment's allowed MIME type. It does not manage `RETRIEVE_SECRET`; if that secret is in the environment it is used only for the verification request.
+
+Setup flags: `--repo <url|path>`, `--config <file>`, `--no-upload-secret`, `--subdomain <name>`, `--ref <ref>`, `--keep`. `--no-upload-secret` leaves a fresh Worker open but does not delete an existing secret.
+
+Custom profiles: Wrangler does not merge configs and rejects `extends`. Copy the complete `wrangler.jsonc` (or use `deploy/pdf-only.jsonc`), keep `main`, the `HANDOFF_VAULT` binding, and the `v1` migration, then:
+
+```bash
+npx wrangler dev --config deploy/pdf-only.jsonc
+npx wrangler deploy --config deploy/pdf-only.jsonc
+```
 
 Or from the CLI:
 
@@ -77,6 +103,8 @@ Local verification needs no Cloudflare account:
 ```bash
 npm test
 ```
+
+Run one suite with `npm run test:setup`, `test:e2e`, `test:filters`, or `test:sides`. Defaults are 8799, 8800, and 8801-8803; override with `FHS_TEST_PORT`, `FHS_FILTER_PORT`, and `FHS_SIDES_PORT`.
 
 ## Agent instructions
 

@@ -14,6 +14,7 @@ import path from "node:path";
 import process from "node:process";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SIDES_PORT = Number(process.env.FHS_SIDES_PORT || 8801);
 const MAX_PAYLOAD = 1024 * 1024;
 const CHUNK = 256 * 1024;
 const TTL = 30;
@@ -136,7 +137,7 @@ async function createHandoff(base, headers = {}) {
 try {
   await runCase(
     "both sides filtered",
-    8801,
+    SIDES_PORT,
     [
       "ALLOWED_UPLOAD_DOMAINS:upload.example.com",
       "ALLOWED_RETRIEVE_DOMAINS:retrieve.example.com",
@@ -295,7 +296,7 @@ try {
 
   await runCase(
     "only upload filtered",
-    8802,
+    SIDES_PORT + 1,
     [
       "ALLOWED_UPLOAD_DOMAINS:upload.example.com",
       `MAX_PAYLOAD_BYTES:${MAX_PAYLOAD}`,
@@ -347,7 +348,7 @@ try {
 
   await runCase(
     "only retrieve filtered",
-    8803,
+    SIDES_PORT + 2,
     [
       "ALLOWED_RETRIEVE_DOMAINS:retrieve.example.com",
       `MAX_PAYLOAD_BYTES:${MAX_PAYLOAD}`,

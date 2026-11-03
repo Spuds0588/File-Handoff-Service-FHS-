@@ -202,3 +202,36 @@ JSON-LD questions, no `ALLOWED_DOMAINS` references remain in current docs/config
 `git diff --check` is clean. No runtime code changed; the previous 34 runtime checks remain valid.
 
 **Deploy status.** Worker not deployed. Documentation changes pushed to `main` for GitHub Pages.
+
+## 2026-11-03 — First-deployment feedback: setup and docs hardening
+
+Acted on a fresh-account deployment report. The main defect was not the Worker: the documented
+first step could fail before the Worker was involved, and the setup script could not express the
+filtered or open-upload configurations people actually deploy.
+
+- `scripts/setup.mjs` now detects Cloudflare error `10063` and prints the dashboard or API-token
+  path. `--subdomain <name>` can check or create the subdomain through the Cloudflare API when
+  `CLOUDFLARE_API_TOKEN` is available; OAuth-only users are directed to Workers & Pages.
+- Added `--config <file>` (validated inside the checkout) and `--no-upload-secret`. The latter
+  leaves a fresh Worker open but deliberately does not delete an existing secret. `RETRIEVE_SECRET`
+  from the environment is used only for the live verification request.
+- Verification now reads `GET /`, picks a probe matching `filters.allowedContentTypes`, and treats
+  a filtered `415` or an unprovided retrieve secret as “deployed; verification skipped” rather than
+  a failed deploy. Descriptor retries cover the new-subdomain TLS lag.
+- Added a complete `deploy/pdf-only.jsonc` profile. Wrangler 4.80 rejects `extends`, so the profile
+  repeats `main`, the Durable Object binding, and the migration; it was bundled with
+  `wrangler deploy --dry-run --config`.
+- Docs now cover the `10063` prerequisite, TLS lag, `--repo`/`--config`/`--no-upload-secret`/
+  `--subdomain`, custom profiles, per-suite test scripts and port overrides, which consumer each
+  filter constrains, `Content-Disposition: attachment` and the Blob workaround, declared versus
+  sniffed MIME types with a `%PDF-` recipe, internal `409`, and post-header stream failures.
+- `AGENTS.md` now scopes cleanup to the end of a task, not the end of each deploy, and documents
+  the setup flags and first-deploy failure mode.
+
+**Verification.** `npm test` → exit 0: setup dry-runs 7/7, end-to-end 11/11, filters 11/11, sides
+12/12 (41 checks). The PDF profile bundles successfully with the pinned Wrangler. JSON-LD parses
+with nine FAQ questions and the visible FAQ matches it. `git diff --check` is clean.
+
+**Deploy status.** No Worker was deployed. The `--subdomain` path was not exercised against
+Cloudflare because it would create account state and needs a REST API token; its dry-run and
+validation paths are covered locally.

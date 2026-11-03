@@ -1,0 +1,24 @@
+{
+  // Wrangler does not merge config files, so this profile is complete on
+  // purpose. Keep the binding and migration identical to wrangler.jsonc.
+  // Change "name" if you want this profile deployed as a separate Worker.
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "file-handoff-service",
+  "main": "../src/index.js",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": true,
+
+  "durable_objects": {
+    "bindings": [{ "name": "HANDOFF_VAULT", "class_name": "HandoffVault" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HandoffVault"] }],
+
+  "observability": { "enabled": true },
+
+  // Reject non-PDF declarations and require the actual %PDF- signature before
+  // any chunk is stored. This checks the signature only; it is not a scanner.
+  "vars": {
+    "ALLOWED_CONTENT_TYPES": "application/pdf",
+    "REQUIRE_PDF_MAGIC": "true"
+  }
+}

@@ -20,6 +20,7 @@ const AUTH = { Authorization: `Bearer ${SECRET}` };
 const MAX_PAYLOAD = 1024 * 1024;
 const CHUNK = 256 * 1024;
 const TTL = 5;
+const PDF = "%PDF-1.4\nfilter probe";
 const WRANGLER = path.join(ROOT, "node_modules", "wrangler", "bin", "wrangler.js");
 
 assert.ok(
@@ -47,6 +48,8 @@ const server = spawn(
     `TTL_SECONDS:${TTL}`,
     "--var",
     "ALLOWED_CONTENT_TYPES:application/pdf,image/*",
+    "--var",
+    "REQUIRE_PDF_MAGIC:true",
     "--var",
     "ALLOWED_UPLOAD_DOMAINS:app.example.com,*.trusted.test",
     "--var",
@@ -142,6 +145,7 @@ try {
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.deepEqual(body.filters.allowedContentTypes, ["application/pdf", "image/*"]);
+    assert.equal(body.filters.requirePdfMagic, true);
     assert.deepEqual(body.filters.uploadDomains, ["app.example.com", "*.trusted.test"]);
     assert.deepEqual(body.filters.retrieveDomains, ["app.example.com", "*.trusted.test"]);
     assert.equal(body.auth.uploadSecretRequired, true);
@@ -151,6 +155,12 @@ try {
   await check("rejects a content type outside the allowlist", async () => {
     const response = await upload("hello", { "Content-Type": "text/plain" });
     assert.equal(response.status, 415);
+  });
+
+  await check("rejects a declared PDF without the PDF signature", async () => {
+    const response = await upload("not a pdf", { "Content-Type": "application/pdf" });
+    assert.equal(response.status, 415);
+    assert.match(await response.text(), /must begin with %PDF-/);
   });
 
   await check("accepts a wildcard content type and echoes an allowed origin", async () => {
@@ -166,7 +176,7 @@ try {
   });
 
   await check("blocks a browser origin outside the allowlist", async () => {
-    const response = await upload("pdf", {
+    const response = await upload(PDF, {
       "Content-Type": "application/pdf",
       Origin: "https://evil.test",
     });
@@ -175,7 +185,7 @@ try {
   });
 
   await check("matches wildcard subdomains and applies CORS to retrieve", async () => {
-    const response = await upload("pdf", {
+    const response = await upload(PDF, {
       "Content-Type": "application/pdf",
       Origin: "https://api.trusted.test",
     });
@@ -194,11 +204,11 @@ try {
       download.headers.get("access-control-allow-origin"),
       "https://api.trusted.test",
     );
-    assert.equal(await download.text(), "pdf");
+    assert.equal(await download.text(), PDF);
   });
 
   await check("does not match the apex of a wildcard domain", async () => {
-    const response = await upload("pdf", {
+    const response = await upload(PDF, {
       "Content-Type": "application/pdf",
       Origin: "https://trusted.test",
     });
@@ -206,7 +216,7 @@ try {
   });
 
   await check("allows server-to-server requests with no Origin", async () => {
-    const response = await upload("pdf", { "Content-Type": "application/pdf" });
+    const response = await upload(PDF, { "Content-Type": "application/pdf" });
     assert.equal(response.status, 201);
     assert.equal(response.headers.get("access-control-allow-origin"), null);
     const info = await response.json();
@@ -214,7 +224,7 @@ try {
   });
 
   await check("uses Referer when Origin is absent", async () => {
-    const response = await upload("pdf", {
+    const response = await upload(PDF, {
       "Content-Type": "application/pdf",
       Referer: "https://app.example.com/send",
     });

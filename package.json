@@ -14,7 +14,11 @@
     "deploy": "wrangler deploy",
     "setup": "node scripts/setup.mjs --repo .",
     "tail": "wrangler tail",
-    "test": "node test/setup.test.mjs && node test/e2e.test.mjs && node test/filters.test.mjs && node test/sides.test.mjs"
+    "test:setup": "node test/setup.test.mjs",
+    "test:e2e": "node test/e2e.test.mjs",
+    "test:filters": "node test/filters.test.mjs",
+    "test:sides": "node test/sides.test.mjs",
+    "test": "npm run test:setup && npm run test:e2e && npm run test:filters && npm run test:sides"
   },
   "devDependencies": {
     "wrangler": "4.80.0"

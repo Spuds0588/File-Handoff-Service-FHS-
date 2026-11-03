@@ -18,13 +18,14 @@ The repository is also a GitHub template. `index.html` and `assets/` at the root
 6. **Response hygiene.** All responses carry `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. Retrieved files are `Content-Disposition: attachment`.
 7. **Migrations are append-only.** Do not edit the existing `tag: "v1"` migration. Add a new tag for a new class.
 8. **Honest docs.** Do not claim durability, physical RAM zeroing, certification, or compliance that the platform cannot provide. The README's "Honest limits" section is load-bearing.
-9. **Filters default open and sides are independent.** `MAX_PAYLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, `ALLOWED_UPLOAD_DOMAINS`, and `ALLOWED_RETRIEVE_DOMAINS` must work with no configuration. Content-Type and browser Origin/Referer checks are advisory filters; `UPLOAD_SECRET` and `RETRIEVE_SECRET` are the bearer gates.
+9. **Filters default open and sides are independent.** `MAX_PAYLOAD_BYTES`, `ALLOWED_CONTENT_TYPES`, `REQUIRE_PDF_MAGIC`, `ALLOWED_UPLOAD_DOMAINS`, and `ALLOWED_RETRIEVE_DOMAINS` must work with no configuration. Content-Type, PDF-signature, and browser Origin/Referer checks are advisory filters; `UPLOAD_SECRET` and `RETRIEVE_SECRET` are the bearer gates.
 
 ## Commands
 
 ```bash
 npm install            # installs wrangler (pinned; requires Node 20.3+)
 npm test               # setup dry-run, end-to-end (:8799), filters (:8800), sides (:8801-:8803)
+npm run test:e2e      # one suite at a time; also test:setup, test:filters, test:sides
 npm run setup          # deploy this local checkout (sets UPLOAD_SECRET outside the repo)
 npm run dev            # local server on 127.0.0.1:8787
 npx wrangler deploy    # deploy the Worker (needs wrangler login or CLOUDFLARE_API_TOKEN)
@@ -33,9 +34,20 @@ npm run tail           # stream production logs
 
 `npm test` needs no Cloudflare account. The end-to-end suite starts a server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret); the filter suite starts a second one with a MIME allowlist, per-side domain allowlists, and a 1 MB cap; the sides suite starts three more for both-sides, upload-only, and retrieve-only configurations. All are killed afterwards. It must pass before you commit.
 
+The suites honor `FHS_TEST_PORT` (default `8799`), `FHS_FILTER_PORT` (`8800`), and
+`FHS_SIDES_PORT` (`8801`, using the next two ports for its additional cases).
+
 ## Deploying
 
 - **Worker:** `npx wrangler deploy`. Without `wrangler login` or `CLOUDFLARE_API_TOKEN` in the environment it will fail; report that instead of inventing credentials. This repo's owner does not keep Cloudflare credentials in the repo.
+- **First deploy on a fresh account:** Cloudflare error `10063` means the account has no
+  `workers.dev` subdomain. Open Workers & Pages once in the dashboard, or use
+  `--subdomain <name>` with `CLOUDFLARE_API_TOKEN`; Wrangler's OAuth token cannot create it through
+  the REST API. A new hostname may reject TLS for up to a minute while its certificate is issued.
+- **Custom profile:** Wrangler does not support `extends`. Copy the complete config (see
+  `deploy/pdf-only.jsonc` for a generic profile or `deploy/simplepdf.jsonc` for the current
+  production settings) and deploy with `npx wrangler deploy --config <file>`; use the same flag
+  with `wrangler dev` and the setup script.
 - **Homepage:** commit to `main`; GitHub Pages publishes from the repository root (`.nojekyll` disables Jekyll). Keep asset and link URLs relative (`assets/styles.css`, `favicon.svg`) because the site lives under `/File-Handoff-Service-FHS-/`. Absolute URLs appear only in canonical, Open Graph, sitemap, and structured-data tags.
 
 ## Setup script
@@ -47,13 +59,20 @@ add this code or any secret to it.
   `~/.fhs/upload-secret` (mode 600); `RETRIEVE_SECRET` is not managed by the script and must be set
   with `wrangler secret put`; `CLOUDFLARE_API_TOKEN` stays in the environment. Never print a
   secret value.
+- `--no-upload-secret` skips setting the upload secret; it does not delete one that already
+  exists. `--config` deploys a profile inside the checkout. `--subdomain` requires
+  `CLOUDFLARE_API_TOKEN`. `RETRIEVE_SECRET` in the environment is used only for verification.
+- Verification must read `GET /` first and choose a probe that satisfies
+  `filters.allowedContentTypes`. A `415` probe rejection or a `401` retrieve without
+  `RETRIEVE_SECRET` is reported as “deployed; verification skipped,” not as a deploy failure.
 - The script checks out to `os.tmpdir()` and removes the checkout unless `--keep` is passed.
 - `--dry-run --repo .` must stay offline and side-effect free. `test/setup.test.mjs` guards it.
 - Do not make the script write into the current working directory.
 
-## Dev environment hygiene — required after every task
+## Dev environment hygiene — required when the task is finished
 
-This machine is memory-constrained. Before you report a task complete:
+This machine is memory-constrained. Before you report a task complete, but not between deploys
+while you are still iterating and need `node_modules` or `.wrangler`:
 
 ```bash
 # 1. Stop every server you started, by recorded PID (never pkill -f patterns)
@@ -85,7 +104,11 @@ git status --short                   # only intended changes
 
 Add checks to `test/e2e.test.mjs` when behavior changes. Keep the suite self-contained: spawn `wrangler dev`, wait for HTTP readiness (never rely on a banner), assert with `node:assert/strict`, and always tear the server down. Cover the happy path, single-use semantics, expiry, size cap, and method/route errors.
 
-`test/filters.test.mjs` covers configured per-side behavior: MIME allowlists (blocked uploads return `415`), browser-origin allowlists with CORS and preflight (blocked origins return `403`), and the payload cap (`413`). `test/sides.test.mjs` covers both-sides, upload-only, and retrieve-only configurations, including `RETRIEVE_SECRET` and per-side preflight. `test/e2e.test.mjs` must keep proving the defaults are open: no MIME or domain configuration, wildcard CORS, no retrieve secret, and uploads without `Origin`.
+`test/filters.test.mjs` covers configured per-side behavior: MIME allowlists and the PDF signature check (blocked uploads return `415`), browser-origin allowlists with CORS and preflight (blocked origins return `403`), and the payload cap (`413`). `test/sides.test.mjs` covers both-sides, upload-only, and retrieve-only configurations, including `RETRIEVE_SECRET` and per-side preflight. `test/e2e.test.mjs` must keep proving the defaults are open: no MIME or domain configuration, no PDF requirement, wildcard CORS, no retrieve secret, and uploads without `Origin`.
+
+`test/setup.test.mjs` covers the offline setup dry-runs: default plan, `--no-upload-secret`,
+`--config`, `--subdomain`, invalid values, and the environment-secret conflict. It must never
+install, deploy, clone, or call the Cloudflare API.
 
 ## Site guidance
 

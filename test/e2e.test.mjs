@@ -152,6 +152,7 @@ try {
     assert.equal(body.limits.chunkSizeBytes, CHUNK);
     assert.equal(body.limits.ttlSeconds, TTL);
     assert.equal(body.filters.allowedContentTypes, "any");
+    assert.equal(body.filters.requirePdfMagic, false);
     assert.equal(body.filters.uploadDomains, "any");
     assert.equal(body.filters.retrieveDomains, "any");
     assert.equal(body.auth.uploadSecretRequired, true);

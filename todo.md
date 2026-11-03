@@ -6,7 +6,7 @@
 - [x] Durable Object `HandoffVault`: in-memory chunks, seal-time TTL, single-use burn, zero-fill on expiry
 - [x] Chunked streaming both directions (8 MB default chunks, 25 MB default cap)
 - [x] Optional `UPLOAD_SECRET` and `RETRIEVE_SECRET` bearer gates, independently settable
-- [x] Config vars: `TTL_SECONDS`, `MAX_PAYLOAD_BYTES`, `CHUNK_SIZE_BYTES`, `ALLOWED_CONTENT_TYPES`, `ALLOWED_UPLOAD_DOMAINS`, `ALLOWED_RETRIEVE_DOMAINS`
+- [x] Config vars: `TTL_SECONDS`, `MAX_PAYLOAD_BYTES`, `CHUNK_SIZE_BYTES`, `ALLOWED_CONTENT_TYPES`, `REQUIRE_PDF_MAGIC`, `ALLOWED_UPLOAD_DOMAINS`, `ALLOWED_RETRIEVE_DOMAINS`
 - [x] Independent, open-by-default filters on both sides: payload cap, MIME-type allowlist, browser-origin allowlists with CORS and preflight, and optional bearer gates
 - [x] End-to-end, filter, and side-specific suites booting `wrangler dev` locally (`npm test`)
 - [x] Zero-prompt `wrangler.jsonc` with `HANDOFF_VAULT` binding and `v1` migration
@@ -15,6 +15,7 @@
 - [x] `AGENTS.md`, `todo.md`, `history.md`
 - [x] One-click Deploy to Cloudflare button in the README and on the homepage, with documented post-deploy secret steps
 - [x] `scripts/setup.mjs` for agents working in another repo: temporary checkout, secret stored outside the repo, live verification
+- [x] First-deploy hardening: `10063` guidance, `--config`/`--no-upload-secret`/`--subdomain` setup flags, descriptor-driven MIME probe, and a duplicate PDF profile
 
 ## Next
 

@@ -39,6 +39,7 @@ const MAX_TOTAL_CHUNKS = 4096;
 const ORPHAN_GRACE_MS = 2 * 60 * 1000;
 
 const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // %PDF-
 
 const COMMON_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
@@ -65,6 +66,11 @@ function parseList(raw) {
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function boolVar(raw) {
+  const value = String(raw ?? "").trim().toLowerCase();
+  return value === "true" || value === "1" || value === "yes";
 }
 
 /** Accept "app.example.com", "https://app.example.com/path", or "*.example.com". */
@@ -202,6 +208,7 @@ function readConfig(env) {
       MAX_CHUNK_BYTES,
     ),
     allowedContentTypes: parseList(env?.ALLOWED_CONTENT_TYPES),
+    requirePdfMagic: boolVar(env?.REQUIRE_PDF_MAGIC),
     allowedUploadDomains,
     allowedRetrieveDomains,
     uploadSecretRequired: Boolean(env?.UPLOAD_SECRET),
@@ -283,6 +290,7 @@ function descriptor(origin, cfg) {
     },
     filters: {
       allowedContentTypes: cfg.allowedContentTypes.length ? cfg.allowedContentTypes : "any",
+      requirePdfMagic: cfg.requirePdfMagic,
       uploadDomains: cfg.allowedUploadDomains.length ? cfg.allowedUploadDomains : "any",
       retrieveDomains: cfg.allowedRetrieveDomains.length ? cfg.allowedRetrieveDomains : "any",
     },
@@ -337,6 +345,10 @@ async function handleUpload(request, env, cfg, origin) {
 
   const token = crypto.randomUUID();
   const storedChunks = [];
+  const declaredType = contentType.split(";")[0].trim().toLowerCase();
+  const checkPdfMagic = cfg.requirePdfMagic && declaredType === "application/pdf";
+  let prefix = new Uint8Array(0);
+  let pdfMagicOk = !checkPdfMagic;
 
   let chunkIndex = 0;
   let totalBytes = 0;
@@ -383,6 +395,23 @@ async function handleUpload(request, env, cfg, origin) {
               413,
             );
           }
+          if (!pdfMagicOk) {
+            const take = Math.min(PDF_MAGIC.length - prefix.length, value.byteLength);
+            if (take > 0) {
+              const next = new Uint8Array(prefix.length + take);
+              next.set(prefix);
+              next.set(value.subarray(0, take), prefix.length);
+              prefix = next;
+            }
+            if (prefix.length === PDF_MAGIC.length) {
+              if (!PDF_MAGIC.every((byte, index) => prefix[index] === byte)) {
+                await reader.cancel().catch(() => {});
+                await purgeChunks(env, token, storedChunks);
+                return json({ error: "Payload is not a PDF. Uploads must begin with %PDF-" }, 415);
+              }
+              pdfMagicOk = true;
+            }
+          }
           staged.push(value);
           stagedBytes += value.byteLength;
 
@@ -391,6 +420,11 @@ async function handleUpload(request, env, cfg, origin) {
 
         if (done) break;
       }
+    }
+
+    if (!pdfMagicOk) {
+      await purgeChunks(env, token, storedChunks);
+      return json({ error: "Payload is not a PDF. Uploads must begin with %PDF-" }, 415);
     }
 
     if (stagedBytes > 0) await flushChunk();

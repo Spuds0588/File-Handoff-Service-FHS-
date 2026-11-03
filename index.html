@@ -56,7 +56,8 @@
               "Streaming uploads and downloads in 8 MB chunks",
               "60-second default TTL, configurable from 5 seconds to 1 hour",
               "25 MB default payload cap, configurable up to 90 MB",
-              "Optional bearer-token gate on uploads"
+              "Optional bearer-token gates on uploads or retrievals",
+              "Optional PDF signature check before any chunk is stored"
             ],
             "offers": {
               "@type": "Offer",
@@ -107,6 +108,11 @@
                 "@type": "HowToStep",
                 "name": "Log in to Cloudflare",
                 "text": "Run npx wrangler login once and finish the browser prompt."
+              },
+              {
+                "@type": "HowToStep",
+                "name": "Create a workers.dev subdomain",
+                "text": "On a new account, open Workers & Pages once in the dashboard to create the workers.dev subdomain. Otherwise npx wrangler deploy returns code 10063."
               },
               {
                 "@type": "HowToStep",
@@ -162,6 +168,14 @@
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "Yes, independently. ALLOWED_UPLOAD_DOMAINS and ALLOWED_RETRIEVE_DOMAINS accept hostnames such as app.example.com,*.example.org for browser Origin/Referer checks. Blocked origins return 403. UPLOAD_SECRET and RETRIEVE_SECRET optionally require Authorization: Bearer on their side, independently. ALLOWED_CONTENT_TYPES and MAX_PAYLOAD_BYTES apply to uploads. Domain checks only govern browsers; use the secrets for real authorization."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why does my first deploy fail with code 10063?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The account has no workers.dev subdomain yet. Open Workers & Pages once in the Cloudflare dashboard to create it, or use the setup script with --subdomain and a CLOUDFLARE_API_TOKEN. Wrangler's OAuth login cannot create the subdomain through the REST API. A new subdomain may also reject TLS for up to a minute while its certificate is issued."
                 }
               },
               {
@@ -359,6 +373,15 @@
             <code>workers.dev</code> URL when the deploy finishes.
           </p>
 
+          <p class="hint">
+            <strong>Fresh account:</strong> open Workers &amp; Pages once before the first deploy.
+            Without a <code>workers.dev</code> subdomain, Wrangler stops with code
+            <code>10063</code>. The setup script can create one with
+            <code>--subdomain &lt;name&gt;</code> when <code>CLOUDFLARE_API_TOKEN</code> is set;
+            the OAuth login cannot call that API. A new hostname can also reject TLS for up to a
+            minute while its certificate is issued.
+          </p>
+
           <p class="deploy-cta">
             <a class="button" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-">Deploy to Cloudflare</a>
             <a class="button ghost" href="#setup-script">Deploy from another repo</a>
@@ -377,7 +400,10 @@ node /tmp/fhs-setup.mjs</code></pre>
             <p class="hint">
               The script checks FHS out to a temporary directory, deploys it, sets the upload
               secret outside your repo, verifies a real handoff, and removes the checkout. Your
-              project is left untouched.
+              project is left untouched. Add <code>--no-upload-secret</code> to leave uploads
+              open, <code>--config &lt;file&gt;</code> for a filtered profile, or
+              <code>--subdomain &lt;name&gt;</code> to create the first hostname. It probes with
+              the deployment's actual MIME allowlist.
             </p>
           </div>
 
@@ -393,12 +419,22 @@ npm install</code></pre>
 
           <p class="step-label">2 — Log in once</p>
           <pre><code>npx wrangler login</code></pre>
+          <p class="hint">
+            On a brand-new account, open Workers &amp; Pages once before deploying. That creates
+            the <code>workers.dev</code> subdomain and avoids code <code>10063</code>.
+          </p>
 
           <p class="step-label">3 — Deploy</p>
           <pre><code>npx wrangler deploy</code></pre>
           <p class="hint">
             No prompts and no bindings to create by hand: the Durable Object binding and the
             <code>v1</code> migration already live in <code>wrangler.jsonc</code>.
+          </p>
+
+          <p class="hint">
+            Need a filtered deployment? Wrangler does not merge configs, so copy the complete
+            profile and run <code>npx wrangler deploy --config deploy/pdf-only.jsonc</code>.
+            <code>npx wrangler dev --config deploy/pdf-only.jsonc</code> tests it locally.
           </p>
 
           <p class="step-label">4 — Check it</p>
@@ -480,6 +516,18 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
             retrieve response is a plain 200 whose body is the file, so no SDK is involved.
           </p>
 
+          <p class="hint">
+            Retrieved files use <code>Content-Disposition: attachment</code>, so an iframe or
+            embed downloads instead of rendering. To preview, fetch the handoff with any required
+            headers, create a Blob, and use <code>URL.createObjectURL(blob)</code>.
+          </p>
+
+          <p class="hint">
+            Status <code>409</code> is internal to the Durable Object layer; the public upload
+            path converts it to <code>500</code> and purges. If a retrieval fails after its 200
+            headers, the client sees a truncated body or network error, not a later 500.
+          </p>
+
           <p class="step-label">Configuration</p>
           <div class="table-wrap">
             <table>
@@ -509,7 +557,12 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
                 <tr>
                   <td><code>ALLOWED_CONTENT_TYPES</code></td>
                   <td>unset (any)</td>
-                  <td>Upload only. Comma-separated MIME types; <code>image/*</code> wildcards; blocked uploads get 415.</td>
+                  <td>Upload only. Comma-separated declared MIME types; <code>image/*</code> wildcards; blocked uploads get 415; the declared type is echoed on retrieve.</td>
+                </tr>
+                <tr>
+                  <td><code>REQUIRE_PDF_MAGIC</code></td>
+                  <td>unset (false)</td>
+                  <td>Upload only. When true, a declared PDF must begin with <code>%PDF-</code> before any chunk is stored; otherwise 415.</td>
                 </tr>
                 <tr>
                   <td><code>ALLOWED_UPLOAD_DOMAINS</code></td>
@@ -539,10 +592,41 @@ await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code>
             For secrets use <code>npx wrangler secret put UPLOAD_SECRET</code> or
             <code>npx wrangler secret put RETRIEVE_SECRET</code>; never commit them.
           </p>
+          <p class="step-label">What each control constrains</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Consumer</th>
+                  <th scope="col">Constrained by</th>
+                  <th scope="col">Not constrained by</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>A page fetching the handoff</td>
+                  <td><code>ALLOWED_*_DOMAINS</code>; a blocked origin gets 403 and no CORS.</td>
+                  <td>A User-Agent list; FHS does not check one.</td>
+                </tr>
+                <tr>
+                  <td>A backend or proxy</td>
+                  <td>The token, plus <code>RETRIEVE_SECRET</code> if set; no Origin is sent.</td>
+                  <td>Domain allowlists.</td>
+                </tr>
+                <tr>
+                  <td>A URL pasted into the address bar</td>
+                  <td>The token only; browsers cannot attach Authorization.</td>
+                  <td>Domain allowlists and <code>RETRIEVE_SECRET</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <p class="hint">
             The sides are independent. Empty or unset means any or no secret, so you can gate
             uploads, retrievals, both, or neither. Domain checks are browser CORS, not
-            authentication; use the secrets for real authorization.
+            authentication; use the secrets for real authorization. MIME filtering trusts the
+            declared header; <code>REQUIRE_PDF_MAGIC=true</code> adds a five-byte PDF signature
+            check before any chunk is stored.
           </p>
         </div>
       </section>
@@ -567,9 +651,10 @@ FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Objec
 2. Get the code. If you are working inside another repository that must stay clean, fetch scripts/setup.mjs from the FHS repository and run it with node. Otherwise clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git into fhs and run npm install inside it.
 3. Read AGENTS.md and wrangler.jsonc. Keep the HANDOFF_VAULT binding, the HandoffVault class, and the v1 migration exactly as they are.
 4. Run npx wrangler whoami. If it is not authenticated, run npx wrangler login and tell me to finish the browser step. Do not ask me for an API token in chat and do not write credentials into the repo.
-5. Run npx wrangler deploy and capture the workers.dev base URL it prints.
-6. Verify end to end with curl: GET the base URL, POST a small text file to /upload, GET the returned handoffUrl and compare the bytes, then GET that URL a second time and confirm HTTP 410.
-7. Report the base URL, the current limits, and the test results. If any step fails, show me the error instead of guessing.</code></pre>
+5. If this is a brand-new Cloudflare account, open Workers & Pages once so a workers.dev subdomain exists. If deploy returns code 10063, stop and tell me; do not invent credentials.
+6. Run npx wrangler deploy and capture the workers.dev base URL it prints.
+7. Verify end to end with curl: GET the base URL, POST a small text file to /upload, GET the returned handoffUrl and compare the bytes, then GET that URL a second time and confirm HTTP 410.
+8. Report the base URL, the current limits, and the test results. If any step fails, show me the error instead of guessing.</code></pre>
           </div>
           <p class="hint">
             The agent needs a Cloudflare account you are willing to deploy to. It should never
@@ -618,6 +703,15 @@ FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Objec
             <code>Authorization: Bearer</code> on their side, independently.
             <code>ALLOWED_CONTENT_TYPES</code> and <code>MAX_PAYLOAD_BYTES</code> apply to
             uploads. Domain checks only govern browsers; use the secrets for real authorization.
+          </p>
+
+          <h3>Why does my first deploy fail with code 10063?</h3>
+          <p>
+            The account has no <code>workers.dev</code> subdomain yet. Open Workers &amp; Pages
+            once in the Cloudflare dashboard to create it, or use the setup script with
+            <code>--subdomain</code> and a <code>CLOUDFLARE_API_TOKEN</code>. Wrangler's OAuth
+            login cannot create the subdomain through the REST API. A new subdomain may also
+            reject TLS for up to a minute while its certificate is issued.
           </p>
 
           <h3>What happens if the receiving service is down?</h3>
