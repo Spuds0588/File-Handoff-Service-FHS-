@@ -419,17 +419,21 @@ const response = await fetch(`${process.env.FHS}/upload`, {
 const { handoffUrl, expiresInSeconds } = await response.json();
 // Send handoffUrl to the consumer over your own trusted channel.</code></pre>
 
-          <p class="step-label">Consumer, Python</p>
-          <pre><code>import requests
+          <p class="step-label">Consumer, Node.js</p>
+          <pre><code>import { writeFile } from "node:fs/promises";
 
-response = requests.get(handoff_url, stream=True, timeout=30)
-if response.status_code == 410:
-    raise RuntimeError("handoff expired or already consumed")
+const response = await fetch(handoffUrl);
 
-response.raise_for_status()
-with open("report.pdf", "wb") as f:
-    for block in response.iter_content(65536):
-        f.write(block)</code></pre>
+if (response.status === 410) {
+  throw new Error("handoff expired or already consumed");
+}
+if (!response.ok) throw new Error(`retrieve failed: ${response.status}`);
+
+await writeFile("report.pdf", Buffer.from(await response.arrayBuffer()));</code></pre>
+          <p class="hint">
+            Both examples use Node 20's global <code>fetch</code>. Any HTTP client works: the
+            retrieve response is a plain 200 whose body is the file, so no SDK is involved.
+          </p>
 
           <p class="step-label">Configuration</p>
           <div class="table-wrap">

@@ -53,3 +53,11 @@ SoftwareApplication, WebSite, HowTo, and FAQPage (7 questions); the stylesheet a
 console errors, no failed requests, no horizontal overflow. The copy button on the agent prompt
 switches to “Copied”. The Worker itself has no public deployment yet, so its API was verified
 only against local `wrangler dev`.
+
+## 2026-11-03 — Docs fix: one language in the API examples
+
+The homepage mixed a Node.js producer with a Python consumer, which made one handoff look like
+two different integrations. Both snippets are now Node.js, matching the Worker, the repo, and
+Node 20's global `fetch`. A short note says any HTTP client works, so non-Node consumers are not
+left guessing; no tabbed multi-language widget was added because it would grow the page's script
+for a case the API does not require. `npm test` is unaffected (HTML and markdown only).
