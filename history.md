@@ -61,3 +61,13 @@ two different integrations. Both snippets are now Node.js, matching the Worker, 
 Node 20's global `fetch`. A short note says any HTTP client works, so non-Node consumers are not
 left guessing; no tabbed multi-language widget was added because it would grow the page's script
 for a case the API does not require. `npm test` is unaffected (HTML and markdown only).
+
+## 2026-11-03 — Author attribution on the site and in structured data
+
+Added a `Person` node to the JSON-LD graph for Corey Burns with `url` and `sameAs` pointing at
+https://github.com/Spuds0588 and https://www.linkedin.com/in/coreytburns. `SoftwareApplication`
+and `HowTo` now reference it by `@id`, and `WebSite` names it as publisher, so the author is one
+entity rather than three unlinked strings. Added a footer line linking both profiles with
+`rel="me"`, and the same attribution to `llms.txt`. The LinkedIn URL was not on the GitHub
+profile (only a Linktree); it was read from the public Linktree that the GitHub account links to
+rather than guessed.

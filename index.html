@@ -64,8 +64,7 @@
               "priceCurrency": "USD"
             },
             "author": {
-              "@type": "Person",
-              "name": "Corey Burns"
+              "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#author"
             }
           },
           {
@@ -73,7 +72,20 @@
             "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#website",
             "url": "https://spuds0588.github.io/File-Handoff-Service-FHS-/",
             "name": "File Handoff Service (FHS)",
-            "inLanguage": "en"
+            "inLanguage": "en",
+            "publisher": {
+              "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#author"
+            }
+          },
+          {
+            "@type": "Person",
+            "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#author",
+            "name": "Corey Burns",
+            "url": "https://github.com/Spuds0588",
+            "sameAs": [
+              "https://github.com/Spuds0588",
+              "https://www.linkedin.com/in/coreytburns"
+            ]
           },
           {
             "@type": "HowTo",
@@ -81,6 +93,9 @@
             "name": "Deploy File Handoff Service to your own Cloudflare account",
             "description": "Clone the repository, install dependencies, authenticate Wrangler, and deploy the Worker.",
             "totalTime": "PT5M",
+            "author": {
+              "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#author"
+            },
             "tool": [{ "@type": "HowToTool", "name": "Cloudflare account" }, { "@type": "HowToTool", "name": "Node.js 20.3 or newer" }],
             "step": [
               {
@@ -562,6 +577,11 @@ FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Objec
 
     <footer>
       <div class="wrap">
+        <p class="author">
+          Built by Corey Burns ·
+          <a href="https://github.com/Spuds0588" rel="me">GitHub</a> ·
+          <a href="https://www.linkedin.com/in/coreytburns" rel="me">LinkedIn</a>
+        </p>
         <p>
           MIT licensed ·
           <a href="https://github.com/Spuds0588/File-Handoff-Service-FHS-">Source</a> ·

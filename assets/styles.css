@@ -555,9 +555,12 @@ footer {
 
 footer .wrap {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 6px 24px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+footer .author {
+  color: var(--ink-2);
 }
 
 footer p {

@@ -5,6 +5,7 @@
 - Canonical page: https://spuds0588.github.io/File-Handoff-Service-FHS-/
 - Source: https://github.com/Spuds0588/File-Handoff-Service-FHS-
 - License: MIT
+- Author: Corey Burns. GitHub: https://github.com/Spuds0588 · LinkedIn: https://www.linkedin.com/in/coreytburns
 - Platform: Cloudflare Workers + Durable Objects (free plan works)
 
 ## What it does
