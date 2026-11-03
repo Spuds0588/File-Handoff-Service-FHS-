@@ -79,11 +79,12 @@ The script uses a temporary checkout, writes the generated upload secret to `~/.
 
 Setup flags: `--repo <url|path>`, `--config <file>`, `--no-upload-secret`, `--subdomain <name>`, `--ref <ref>`, `--keep`. `--no-upload-secret` leaves a fresh Worker open but does not delete an existing secret.
 
-Custom profiles: Wrangler does not merge configs and rejects `extends`. Copy the complete `wrangler.jsonc` (or use `deploy/pdf-only.jsonc`), keep `main`, the `HANDOFF_VAULT` binding, and the `v1` migration, then:
+Custom profiles: Wrangler does not merge configs and rejects `extends`. Copy the complete `wrangler.jsonc` (or use `deploy/pdf-only.jsonc` for a generic PDF profile, or `deploy/simplepdf.jsonc` for the current SimplePDF production settings), keep `main`, the `HANDOFF_VAULT` binding, and the `v1` migration, then:
 
 ```bash
 npx wrangler dev --config deploy/pdf-only.jsonc
 npx wrangler deploy --config deploy/pdf-only.jsonc
+npx wrangler deploy --config deploy/simplepdf.jsonc
 ```
 
 Or from the CLI:

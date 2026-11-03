@@ -317,6 +317,7 @@ index.html, assets/, robots.txt, sitemap.xml, llms.txt   static site served by G
 src/index.js                                             Worker + Durable Object
 scripts/setup.mjs                                        deploy from another repo, no secrets in it
 deploy/pdf-only.jsonc                                    complete duplicate profile for a PDF MIME filter
+deploy/simplepdf.jsonc                                   current SimplePDF production profile
 test/e2e.test.mjs                                        end-to-end suite (wrangler dev)
 test/filters.test.mjs                                    MIME, per-side domain/CORS, and payload-cap tests
 test/sides.test.mjs                                      both-sides, upload-only, and retrieve-only tests

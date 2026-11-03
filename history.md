@@ -235,3 +235,36 @@ with nine FAQ questions and the visible FAQ matches it. `git diff --check` is cl
 **Deploy status.** No Worker was deployed. The `--subdomain` path was not exercised against
 Cloudflare because it would create account state and needs a REST API token; its dry-run and
 validation paths are covered locally.
+
+## 2026-11-03 — Reconcile source with production, deploy, and verify
+
+Production inspection showed the live Worker was ahead of the repository: it reported
+`filters.requirePdfMagic: true`, a 300-second TTL, `ALLOWED_CONTENT_TYPES=application/pdf`, and a
+`simplepdf.com` retrieve allowlist. The source had no PDF-signature capability and no committed
+profile for those settings, so the deployment was not reproducible from `main`.
+
+- Added `REQUIRE_PDF_MAGIC` (`true`/`1`/`yes`) to the Worker. For uploads declared
+  `application/pdf`, it buffers at most five bytes, checks for `%PDF-` before the first chunk is
+  stored, and returns `415` with the production message otherwise. The descriptor now reports
+  `filters.requirePdfMagic`; the default remains false.
+- Added `deploy/simplepdf.jsonc` with the exact production bindings and `deploy/pdf-only.jsonc`
+  with the generic PDF profile. Both keep the existing Durable Object binding and `v1` migration.
+- Updated the filter suite to prove the magic check rejects a fake PDF and leaves non-PDF MIME
+  filtering independent; the end-to-end suite proves the default is off.
+- Updated README, homepage, `llms.txt`, `AGENTS.md`, and TODO for the new setting and profiles.
+
+**Verification.** `npm test` → exit 0: setup dry-runs 7/7, end-to-end 11/11, filters 12/12, sides
+12/12 (42 checks). Both deploy profiles bundle with the pinned Wrangler. Deployed `main` at
+commit `f0f1a40` to production with `deploy/simplepdf.jsonc`; current Version ID
+`3c1fb49b-cf5b-4d95-adc1-030c0252d62c`.
+
+Production checks against `https://file-handoff-service.spuds0588.workers.dev`: descriptor
+reported the expected 300-second TTL, PDF-only MIME and signature rules, no upload/retrieve
+secret, and the SimplePDF origin list. A non-PDF body declared as PDF returned `415`; a valid
+`%PDF-` upload returned `201` with `expiresInSeconds: 300`; an unapproved retrieve origin returned
+`403`; the SimplePDF origin retrieved identical bytes with `Content-Disposition: attachment`; the
+second retrieve returned `410`.
+
+**Remaining gap.** `--subdomain` creation itself was still not exercised against Cloudflare because
+it needs a REST API token and would create account state; its dry-run/validation paths and the
+existing live subdomain are verified.
