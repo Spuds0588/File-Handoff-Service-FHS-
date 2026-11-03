@@ -45,6 +45,11 @@ Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set a
 
 ## Deploy
 
+One-click deploy (clones into your GitHub account, provisions the Durable Object, no required fields; set `UPLOAD_SECRET` after deploy):
+https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-
+
+Or from the CLI:
+
 ```bash
 git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs
 cd fhs

@@ -71,3 +71,22 @@ entity rather than three unlinked strings. Added a footer line linking both prof
 `rel="me"`, and the same attribution to `llms.txt`. The LinkedIn URL was not on the GitHub
 profile (only a Linktree); it was read from the public Linktree that the GitHub account links to
 rather than guessed.
+
+## 2026-11-03 — One-click Deploy to Cloudflare
+
+Added the official Deploy to Cloudflare button
+(`https://deploy.workers.cloudflare.com/?url=…`) to the top of the README and as a primary
+button in the homepage deploy section. The button clones the repo into the deployer's GitHub
+account, provisions the `HANDOFF_VAULT` Durable Object from `wrangler.jsonc`, and builds with the
+`deploy` script already in `package.json`, so no binding setup is required.
+
+`.dev.vars.example` documents `UPLOAD_SECRET` but keeps the line commented. Cloudflare's deploy
+button treats every uncommented entry as a required secret pre-filled with the value in the file
+(cloudflare/workers-sdk#14639), so a committed placeholder would ship as the real secret. A
+commented line means no prompt and no fake protection, and the README and homepage tell deployers
+to set the key immediately with `wrangler secret put UPLOAD_SECRET`. If it is skipped, uploads are
+open until the TTL drops the bytes.
+
+This is as close to one click as the platform allows: one GitHub authorization, no required
+fields, then a live `workers.dev` URL. A secure-by-default flow would need the platform to
+generate or require a secret at deploy time, which it does not do for this template.

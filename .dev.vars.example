@@ -1,0 +1,13 @@
+# Template for local development. Copy to `.dev.vars` to use it with
+# `wrangler dev`. Do not commit `.dev.vars`.
+#
+# The Deploy to Cloudflare button also reads this file, but it treats every
+# UNCOMMENTED line as a required secret and pre-fills it with the value here.
+# A committed placeholder would therefore be deployed as the real secret, so
+# the line stays commented. Set the real value after deploying:
+#
+#   npx wrangler secret put UPLOAD_SECRET
+#
+# Generate one with: openssl rand -hex 32
+#
+# UPLOAD_SECRET=

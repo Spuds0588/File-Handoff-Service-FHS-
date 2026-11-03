@@ -351,6 +351,15 @@
             <code>workers.dev</code> URL when the deploy finishes.
           </p>
 
+          <p class="deploy-cta">
+            <a class="button" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-">Deploy to Cloudflare</a>
+          </p>
+          <p class="hint">
+            One click clones this repository into your account, provisions the Durable Object,
+            and deploys the Worker with no required fields. Then gate uploads with
+            <code>npx wrangler secret put UPLOAD_SECRET</code>. Prefer the CLI? Four commands:
+          </p>
+
           <p class="step-label">1 — Get the code</p>
           <pre><code>git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs
 cd fhs
@@ -382,9 +391,7 @@ curl -sS -X POST --data-binary @report.pdf \
           </p>
 
           <p class="hint">
-            Prefer clicking? <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-">Deploy to Cloudflare</a>
-            creates the Worker from this repository in your account. Local tests need no account
-            at all: run <code>npm test</code>.
+            Local tests need no Cloudflare account at all: run <code>npm test</code>.
           </p>
         </div>
       </section>

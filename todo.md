@@ -12,6 +12,7 @@
 - [x] SEO/AEO homepage on GitHub Pages: structured data, FAQ, sitemap, robots, `llms.txt`
 - [x] Copyable AI agent prompt on the homepage
 - [x] `AGENTS.md`, `todo.md`, `history.md`
+- [x] One-click Deploy to Cloudflare button in the README and on the homepage, with a documented post-deploy `UPLOAD_SECRET` step
 
 ## Next
 

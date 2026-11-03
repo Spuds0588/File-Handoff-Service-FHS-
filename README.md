@@ -10,6 +10,31 @@ An ephemeral, single-use, zero-retention binary relay built on Cloudflare Worker
 - Chunked streaming in both directions, so no isolate holds the whole file.
 - Optional bearer token on upload. No payload contents in logs.
 
+## Deploy in one click
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-)
+
+The button clones this repository into your GitHub account, provisions the `HANDOFF_VAULT`
+Durable Object, and deploys the Worker to a `workers.dev` URL.
+
+There are no required fields: the Durable Object binding and the `v1` migration come from
+`wrangler.jsonc`, so the first deploy works as-is. Uploads are open until you set
+`UPLOAD_SECRET`, which is the first thing to do:
+
+```bash
+npx wrangler secret put UPLOAD_SECRET   # any long random string, e.g. openssl rand -hex 32
+```
+
+Uploads then send it as `Authorization: Bearer <secret>`. If you skip this, anyone who finds the
+URL can use the relay until the TTL drops the bytes.
+
+When the deploy finishes, copy the base URL and confirm it:
+
+```bash
+export FHS=https://file-handoff-service.YOUR-SUBDOMAIN.workers.dev
+curl -sS "$FHS/"
+```
+
 ## How it works
 
 ```
@@ -35,9 +60,10 @@ npm test        # boots wrangler dev on 127.0.0.1:8799 and exercises the API
 npm run dev     # manual local server on 127.0.0.1:8787
 ```
 
-## Deploy to your own Cloudflare account
+## Deploy from the CLI
 
-Requires Node 20.3+ and a Cloudflare account (the free plan is enough).
+Requires Node 20.3+ and a Cloudflare account (the free plan is enough). The result is the same
+as the button, without cloning the repository into your GitHub account.
 
 ```bash
 npx wrangler login
@@ -46,7 +72,11 @@ npx wrangler deploy
 
 `wrangler deploy` prints `https://file-handoff-service.<subdomain>.workers.dev`. The Durable Object binding and the `v1` migration are already in `wrangler.jsonc`; there is nothing to create by hand.
 
-Or use the one-click flow: <https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS->
+Then set the upload secret so the endpoint is not open:
+
+```bash
+npx wrangler secret put UPLOAD_SECRET
+```
 
 ## API
 
