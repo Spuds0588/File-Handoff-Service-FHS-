@@ -1,0 +1,21 @@
+{
+  "name": "file-handoff-service",
+  "version": "1.0.0",
+  "description": "Ephemeral, single-use, zero-retention file relay on Cloudflare Workers and Durable Objects.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20.3.0"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "test": "node test/e2e.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.80.0"
+  }
+}

@@ -1,0 +1,80 @@
+# AGENTS.md — File Handoff Service (FHS)
+
+Instructions for AI coding agents working in this repository. Read this before changing anything.
+
+## What this is
+
+FHS is a single-use, zero-retention file relay: one Cloudflare Worker (`src/index.js`) plus one Durable Object class (`HandoffVault`). Service A uploads a payload, gets a token, and Service B downloads it exactly once. No R2, KV, D1, or Durable Object storage is involved.
+
+The repository is also a GitHub template. `index.html` and `assets/` at the root are the public site, served by GitHub Pages from `main` at `/`. The Worker lives beside them in `src/`.
+
+## Invariants — do not break these
+
+1. **Zero durable storage.** Never add `state.storage`, KV, R2, D1, queues, caches, or any API that persists payload bytes. This is the product, not an implementation detail.
+2. **Single use.** The first successful `GET /retrieve/:token` consumes the handoff. Every later request must return `410`.
+3. **No payload in logs or responses.** Log token prefixes, byte counts, and statuses only. Never log bodies, filenames, or document contents.
+4. **Bounded memory.** Uploads and downloads stream. Chunks are one Durable Object each. Keep chunk size ≤ 16 MB, total payload ≤ 90 MB, and never buffer a whole payload in the gateway isolate.
+5. **No secrets in the repo.** `UPLOAD_SECRET` is a Wrangler secret or a local env value. Never commit `.dev.vars`, `.env`, or credentials, and never ask a user to paste an API token into chat.
+6. **Response hygiene.** All responses carry `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. Retrieved files are `Content-Disposition: attachment`.
+7. **Migrations are append-only.** Do not edit the existing `tag: "v1"` migration. Add a new tag for a new class.
+8. **Honest docs.** Do not claim durability, physical RAM zeroing, certification, or compliance that the platform cannot provide. The README's "Honest limits" section is load-bearing.
+
+## Commands
+
+```bash
+npm install            # installs wrangler (pinned; requires Node 20.3+)
+npm test               # end-to-end suite; boots wrangler dev on 127.0.0.1:8799
+npm run dev            # local server on 127.0.0.1:8787
+npx wrangler deploy    # deploy the Worker (needs wrangler login or CLOUDFLARE_API_TOKEN)
+npm run tail           # stream production logs
+```
+
+`npm test` needs no Cloudflare account. It starts its own server with test vars (2 MB cap, 256 KB chunks, 5 s TTL, upload secret) and kills it afterwards. It must pass before you commit.
+
+## Deploying
+
+- **Worker:** `npx wrangler deploy`. Without `wrangler login` or `CLOUDFLARE_API_TOKEN` in the environment it will fail; report that instead of inventing credentials. This repo's owner does not keep Cloudflare credentials in the repo.
+- **Homepage:** commit to `main`; GitHub Pages publishes from the repository root (`.nojekyll` disables Jekyll). Keep asset and link URLs relative (`assets/styles.css`, `favicon.svg`) because the site lives under `/File-Handoff-Service-FHS-/`. Absolute URLs appear only in canonical, Open Graph, sitemap, and structured-data tags.
+
+## Dev environment hygiene — required after every task
+
+This machine is memory-constrained. Before you report a task complete:
+
+```bash
+# 1. Stop every server you started, by recorded PID (never pkill -f patterns)
+kill <pid>
+lsof -i:8787 -i:8799 2>/dev/null     # must print nothing
+
+# 2. Remove transient state and dependencies
+rm -rf node_modules .wrangler
+
+# 3. Remove temp artifacts you created
+rm -f /tmp/fhs-* fhs-test-* *.bin
+
+# 4. Leave the tree clean
+git status --short                   # only intended changes
+```
+
+- Run one `wrangler dev` instance at a time, on a port you recorded.
+- Do not leave background processes running between tasks. If you started one with a background runner, stop it explicitly.
+- `npm install` recreates `node_modules` when the suite is needed again; do not commit it.
+- Large test payloads are generated in memory; do not write multi-megabyte fixtures to disk.
+
+## Work tracking
+
+- `todo.md` is the backlog and the current checklist. Update it when you finish or add work.
+- `history.md` is append-only. Add a dated entry for each task: what changed, decisions, verification output (including counts), and deploy status.
+- Commit messages should say why the change was made.
+
+## Testing guidance
+
+Add checks to `test/e2e.test.mjs` when behavior changes. Keep the suite self-contained: spawn `wrangler dev`, wait for HTTP readiness (never rely on a banner), assert with `node:assert/strict`, and always tear the server down. Cover the happy path, single-use semantics, expiry, size cap, and method/route errors.
+
+## Site guidance
+
+The homepage is indexed by search engines and parsed by answer engines. If you edit it:
+
+- Keep one `<h1>`; keep headings semantic and question-shaped in the FAQ.
+- Keep the visible FAQ and the `FAQPage` JSON-LD in sync.
+- Keep `meta description`, canonical, `sitemap.xml`, `robots.txt`, and `llms.txt` accurate when limits change.
+- No third-party assets, fonts, analytics, or cookies. The footer states this; keep it true.

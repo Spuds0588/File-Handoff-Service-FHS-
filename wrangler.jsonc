@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "file-handoff-service",
+  "main": "src/index.js",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": true,
+
+  // One class, one binding. The class never touches storage, but new Durable
+  // Object namespaces must use the SQLite backend, so it is declared that way.
+  "durable_objects": {
+    "bindings": [{ "name": "HANDOFF_VAULT", "class_name": "HandoffVault" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HandoffVault"] }],
+
+  "observability": { "enabled": true }
+
+  // Optional runtime overrides (defaults shown). Uncomment and redeploy, or use
+  // `wrangler secret put UPLOAD_SECRET` for the upload secret.
+  //
+  // "vars": {
+  //   "TTL_SECONDS": "60",
+  //   "MAX_PAYLOAD_BYTES": "26214400",
+  //   "CHUNK_SIZE_BYTES": "8388608"
+  // }
+}

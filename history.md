@@ -1,0 +1,46 @@
+# History
+
+Append-only work log. Newest entry last.
+
+## 2026-11-03 — v1 build, local verification, first publish
+
+**Built.** First working version of the service, from the PRD in
+`chat-ephemeral-file-handoff-service-google-ai-studio-2026-11-03-1226.md`.
+
+- `src/index.js`: Worker routes (`GET /`, `POST /upload`, `GET /retrieve/:token`) and the
+  `HandoffVault` Durable Object. Payloads are split into chunks; each chunk lives in its own
+  Durable Object; the layout record is written last so the TTL clock starts at seal time.
+- `wrangler.jsonc`: `HANDOFF_VAULT` binding, `v1` migration using `new_sqlite_classes` (required
+  for new namespaces on the Workers free plan), no storage APIs in the class.
+- `test/e2e.test.mjs`: self-contained suite that boots `wrangler dev` on `127.0.0.1:8799` with a
+  2 MB cap, 256 KB chunks, 5 s TTL, and an upload secret.
+- `index.html`, `assets/styles.css`, `favicon.svg`: static homepage for GitHub Pages.
+- `robots.txt`, `sitemap.xml`, `llms.txt`: crawl and answer-engine surface.
+- `README.md`, `AGENTS.md`, `todo.md`, `history.md`.
+
+**Decisions and deviations from the source PRD.**
+
+- Default payload is 25 MB / 8 MB chunks instead of the PRD's 120 MB / 15 MB. The Workers free
+  and pro request-body ceiling is 100 MB, and the isolate memory limit is 128 MB, so 120 MB was
+  not deployable as written. The cap is configurable up to 90 MB.
+- Chunks are not zero-filled at delivery, because a buffer cannot be zeroed while it is being
+  sent. The vault hands ownership to the outbound response and drops its reference; chunks that
+  expire unread are zero-filled. This limitation is documented instead of overstated.
+- `wrangler` is pinned to `4.80.0`, the newest release that still supports Node 20.3 (later 4.x
+  releases require Node 22, and this machine runs Node 20.19).
+- Uploads can be gated with `UPLOAD_SECRET`; the source PRD left open ingress unaddressed.
+- No Open Graph image: no image tooling available, and adding a binary for a summary card was
+  not worth the repo weight in v1.
+
+**Verification (local).** `npm test` → 10/10 checks passed, exit 0. Covered: descriptor and live
+limits, 401 without the upload secret, 700 KB multi-chunk round trip with matching SHA-256,
+single-use 410 on the second GET, zero-byte payloads, malformed token 400, unknown token 410,
+oversize 413, 405/404 handling, and TTL expiry after an unretrieved handoff.
+
+Site checks: JSON-LD parses (SoftwareApplication, WebSite, HowTo, FAQPage), every internal
+anchor resolves, all local assets exist and are referenced relatively, `robots.txt` points at
+`sitemap.xml`. No Cloudflare account was needed for any of this.
+
+**Publish.** Static homepage published to GitHub Pages from `main` (source: branch `main`,
+path `/`, `.nojekyll`). The Worker is not deployed: no Cloudflare account or credentials were
+available in this environment.

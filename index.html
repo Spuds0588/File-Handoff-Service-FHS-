@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>File Handoff Service (FHS) — single-use file relay, zero disk</title>
+    <meta
+      name="description"
+      content="FHS is a Cloudflare Worker that hands a file between two systems in volatile memory: one upload, one download, 60 seconds, zero disk. Deploy it in one command."
+    />
+    <link rel="canonical" href="https://spuds0588.github.io/File-Handoff-Service-FHS-/" />
+    <meta name="robots" content="index, follow, max-snippet:-1" />
+    <meta name="author" content="Corey Burns" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fcfcfb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1013" media="(prefers-color-scheme: dark)" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="File Handoff Service" />
+    <meta property="og:title" content="File Handoff Service (FHS)" />
+    <meta
+      property="og:description"
+      content="Hand a file between two systems without writing it to disk. One upload, one download, 60 seconds, zero retention."
+    />
+    <meta property="og:url" content="https://spuds0588.github.io/File-Handoff-Service-FHS-/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="File Handoff Service (FHS)" />
+    <meta
+      name="twitter:description"
+      content="A zero-retention file relay on Cloudflare Workers. One single-use handoff URL, 60 seconds, no storage."
+    />
+
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/styles.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#software",
+            "name": "File Handoff Service (FHS)",
+            "alternateName": "FHS",
+            "applicationCategory": "DeveloperApplication",
+            "applicationSubCategory": "File transfer",
+            "operatingSystem": "Cloudflare Workers",
+            "url": "https://spuds0588.github.io/File-Handoff-Service-FHS-/",
+            "codeRepository": "https://github.com/Spuds0588/File-Handoff-Service-FHS-",
+            "license": "https://opensource.org/licenses/MIT",
+            "isAccessibleForFree": true,
+            "description": "A single-use, zero-retention file relay for Cloudflare Workers and Durable Objects. An upload returns one handoff URL, the receiver downloads it once, and the payload is dropped from volatile memory.",
+            "featureList": [
+              "Single-use handoff URLs",
+              "Zero durable storage: no R2, KV, D1, or Durable Object storage",
+              "Streaming uploads and downloads in 8 MB chunks",
+              "60-second default TTL, configurable from 5 seconds to 1 hour",
+              "25 MB default payload cap, configurable up to 90 MB",
+              "Optional bearer-token gate on uploads"
+            ],
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Corey Burns"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#website",
+            "url": "https://spuds0588.github.io/File-Handoff-Service-FHS-/",
+            "name": "File Handoff Service (FHS)",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "HowTo",
+            "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#deploy",
+            "name": "Deploy File Handoff Service to your own Cloudflare account",
+            "description": "Clone the repository, install dependencies, authenticate Wrangler, and deploy the Worker.",
+            "totalTime": "PT5M",
+            "tool": [{ "@type": "HowToTool", "name": "Cloudflare account" }, { "@type": "HowToTool", "name": "Node.js 20.3 or newer" }],
+            "step": [
+              {
+                "@type": "HowToStep",
+                "name": "Get the code",
+                "text": "Clone the repository and run npm install."
+              },
+              {
+                "@type": "HowToStep",
+                "name": "Log in to Cloudflare",
+                "text": "Run npx wrangler login once and finish the browser prompt."
+              },
+              {
+                "@type": "HowToStep",
+                "name": "Deploy",
+                "text": "Run npx wrangler deploy. The Durable Object binding and v1 migration are already configured."
+              },
+              {
+                "@type": "HowToStep",
+                "name": "Verify",
+                "text": "Request the base URL for the JSON descriptor, then upload and retrieve a small file."
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://spuds0588.github.io/File-Handoff-Service-FHS-/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is the File Handoff Service?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "FHS is a small Cloudflare Worker plus one Durable Object class that relays a file between two backend systems. Service A uploads it, FHS returns a single-use URL, Service B downloads it once, and the bytes are dropped from volatile memory."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does FHS store my files?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Payloads live only in the memory of isolated Durable Objects. FHS never writes to R2, KV, D1, or Durable Object storage, and it does not log payload contents."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How long does a handoff last?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "60 seconds by default, measured from the moment the upload is sealed. The TTL is configurable from 5 seconds to 3600 seconds with the TTL_SECONDS variable."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How large can a file be?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "25 MB by default. MAX_PAYLOAD_BYTES can raise it to 90 MB, which stays under the Workers Free and Pro request-body ceiling of 100 MB. Uploads and downloads stream in 8 MB chunks so no single isolate holds the whole file."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What happens if the receiving service is down?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The payload expires and the handoff URL returns HTTP 410. FHS is a relay, not a queue: re-upload the file when the consumer is ready."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is FHS HIPAA or GLBA compliant?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "FHS is built for zero-retention transit: no durable copy, no payload logging, single use, short TTL. That removes a stored-data surface, but compliance also depends on your agreements, network, endpoints, and legal review. FHS is not a certification."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I self-host FHS somewhere other than Cloudflare?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "It needs long-lived, addressable in-memory state. Cloudflare Workers with Durable Objects provides that. A stateless function platform or an object-storage-only backend cannot hold the bytes without writing them to disk, which defeats the design."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="#top" aria-label="FHS home">
+          <span class="mark" aria-hidden="true">FHS</span>
+          <span>File Handoff Service</span>
+        </a>
+        <nav class="site-nav" aria-label="Sections">
+          <a href="#what">What it does</a>
+          <a href="#deploy">Stand it up</a>
+          <a href="#api">API</a>
+          <a href="#agent">AI prompt</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="wrap">
+          <p class="eyebrow">Zero-retention relay · Cloudflare Workers + Durable Objects</p>
+          <h1>Hand a file between two systems without writing it to disk.</h1>
+          <p class="lede">
+            FHS takes a binary upload, returns a single-use URL, streams the bytes to the
+            receiver exactly once, and keeps no copy. No bucket, no database, no vendor data
+            store to audit.
+          </p>
+          <p class="cta">
+            <a class="button" href="#deploy">Deploy it yourself</a>
+            <a class="button ghost" href="https://github.com/Spuds0588/File-Handoff-Service-FHS-/">View the source</a>
+          </p>
+          <dl class="facts">
+            <div>
+              <dt>Payload</dt>
+              <dd>25 MB per handoff</dd>
+            </div>
+            <div>
+              <dt>Window</dt>
+              <dd>60 seconds, single use</dd>
+            </div>
+            <div>
+              <dt>Storage</dt>
+              <dd>None. Volatile memory only.</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="band" id="what">
+        <div class="wrap">
+          <h2>What it does</h2>
+          <p class="sub">
+            Four properties do the work. Everything else is plumbing.
+          </p>
+          <div class="grid">
+            <article class="card">
+              <h3>One upload, one download</h3>
+              <p>
+                <code>POST /upload</code> returns a random 122-bit token and a handoff URL.
+                The first GET streams the bytes and burns the token. Every later request gets
+                HTTP 410.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Nothing touches disk</h3>
+              <p>
+                Chunks live in the memory of isolated Durable Objects. FHS never calls R2, KV,
+                D1, or Durable Object storage, so there is no stored copy to retain or expire.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Bounded at both ends</h3>
+              <p>
+                Uploads stream in and are split into 8 MB chunks, one Durable Object each.
+                Downloads pull chunks in order and stream them out, so no single isolate holds
+                the whole file.
+              </p>
+            </article>
+            <article class="card">
+              <h3>A clock, not a queue</h3>
+              <p>
+                The TTL starts when the upload is sealed. If the receiver misses the window the
+                payload is gone and Service A uploads again. There is no retry buffer to clean up.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="use-cases">
+        <div class="wrap">
+          <h2>What it's for</h2>
+          <p class="sub">
+            For the gap between two backends that have to exchange a file but should not share
+            storage, credentials, or a provider.
+          </p>
+          <ul class="plain">
+            <li>
+              <strong>NPI and PHI on the move.</strong> Claims attachments, lab PDFs, KYC
+              documents, signed agreements passed from a producer system to a consumer system.
+            </li>
+            <li>
+              <strong>Replacing shared buckets.</strong> No long-lived signed URL, no lifecycle
+              rule to prove, no object left behind by a failed cleanup job.
+            </li>
+            <li>
+              <strong>Smaller vendor surface.</strong> The relay holds bytes in memory for under
+              a minute, so there is no persistent store to add to a vendor register.
+            </li>
+            <li>
+              <strong>Internal tooling.</strong> Moving an export or a build artifact between two
+              CI systems without a shared filesystem.
+            </li>
+          </ul>
+          <aside class="note">
+            <h3>What it is not</h3>
+            <p>
+              FHS is a relay, not storage: not durable, not a queue, not a workflow engine. A
+              payload can disappear before its TTL if the Durable Object is evicted, so treat 410
+              as “upload it again”. And it does not make you compliant on its own. Retention
+              rules, agreements, and endpoints are decisions about your whole system.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="band" id="how">
+        <div class="wrap">
+          <h2>How a handoff works</h2>
+          <ol class="steps">
+            <li>
+              <strong>Upload</strong>
+              Service A sends the file to <code>POST /upload</code>. The Worker streams it in and
+              writes 8 MB chunks into separate Durable Objects.
+            </li>
+            <li>
+              <strong>Seal</strong>
+              A layout record is written last. That starts the TTL clock and produces the token.
+              The response is the only copy of that token.
+            </li>
+            <li>
+              <strong>Retrieve</strong>
+              Service B calls <code>GET /retrieve/:token</code>. The Worker burns the layout
+              record, pulls chunks in order, and streams them to the caller.
+            </li>
+            <li>
+              <strong>Gone</strong>
+              The token now answers 410. Chunks that were never read are zeroed when their timer
+              fires, and an evicted Durable Object takes its bytes with it.
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="band" id="deploy">
+        <div class="wrap">
+          <h2>Stand it up on your own account</h2>
+          <p class="sub">
+            You need a Cloudflare account (the free plan is enough) and Node 20.3 or newer. The
+            Worker is named <code>file-handoff-service</code>; Cloudflare prints its
+            <code>workers.dev</code> URL when the deploy finishes.
+          </p>
+
+          <p class="step-label">1 — Get the code</p>
+          <pre><code>git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs
+cd fhs
+npm install</code></pre>
+          <p class="hint">
+            This repo is a GitHub template. You can also press <em>Use this template</em> and
+            deploy your own copy.
+          </p>
+
+          <p class="step-label">2 — Log in once</p>
+          <pre><code>npx wrangler login</code></pre>
+
+          <p class="step-label">3 — Deploy</p>
+          <pre><code>npx wrangler deploy</code></pre>
+          <p class="hint">
+            No prompts and no bindings to create by hand: the Durable Object binding and the
+            <code>v1</code> migration already live in <code>wrangler.jsonc</code>.
+          </p>
+
+          <p class="step-label">4 — Check it</p>
+          <pre><code>export FHS=https://file-handoff-service.YOUR-SUBDOMAIN.workers.dev
+curl -sS "$FHS/"
+curl -sS -X POST --data-binary @report.pdf \
+  -H "Content-Type: application/pdf" \
+  "$FHS/upload"</code></pre>
+          <p class="hint">
+            The first call returns a JSON descriptor with the live limits. The second returns a
+            token and a handoff URL that works once.
+          </p>
+
+          <p class="hint">
+            Prefer clicking? <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Spuds0588/File-Handoff-Service-FHS-">Deploy to Cloudflare</a>
+            creates the Worker from this repository in your account. Local tests need no account
+            at all: run <code>npm test</code>.
+          </p>
+        </div>
+      </section>
+
+      <section class="band" id="api">
+        <div class="wrap">
+          <h2>Use it</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Method</th>
+                  <th scope="col">Path</th>
+                  <th scope="col">Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/</code></td>
+                  <td>JSON descriptor: version, routes, live limits.</td>
+                </tr>
+                <tr>
+                  <td>POST</td>
+                  <td><code>/upload</code></td>
+                  <td>The request body is the file. Returns 201 with a token and a handoff URL.</td>
+                </tr>
+                <tr>
+                  <td>GET</td>
+                  <td><code>/retrieve/:token</code></td>
+                  <td>Streams the file once (200). Any later attempt returns 410.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="step-label">Producer, Node.js</p>
+          <pre><code>import { readFile } from "node:fs/promises";
+
+const file = await readFile("report.pdf");
+const response = await fetch(`${process.env.FHS}/upload`, {
+  method: "POST",
+  headers: { "Content-Type": "application/pdf" },
+  body: file,
+});
+
+const { handoffUrl, expiresInSeconds } = await response.json();
+// Send handoffUrl to the consumer over your own trusted channel.</code></pre>
+
+          <p class="step-label">Consumer, Python</p>
+          <pre><code>import requests
+
+response = requests.get(handoff_url, stream=True, timeout=30)
+if response.status_code == 410:
+    raise RuntimeError("handoff expired or already consumed")
+
+response.raise_for_status()
+with open("report.pdf", "wb") as f:
+    for block in response.iter_content(65536):
+        f.write(block)</code></pre>
+
+          <p class="step-label">Configuration</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Variable</th>
+                  <th scope="col">Default</th>
+                  <th scope="col">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>TTL_SECONDS</code></td>
+                  <td>60</td>
+                  <td>5 to 3600. Clock starts when the upload is sealed.</td>
+                </tr>
+                <tr>
+                  <td><code>MAX_PAYLOAD_BYTES</code></td>
+                  <td>26214400 (25 MB)</td>
+                  <td>Up to 94371840 (90 MB).</td>
+                </tr>
+                <tr>
+                  <td><code>CHUNK_SIZE_BYTES</code></td>
+                  <td>8388608 (8 MB)</td>
+                  <td>64 KB to 16 MB, one Durable Object per chunk.</td>
+                </tr>
+                <tr>
+                  <td><code>UPLOAD_SECRET</code></td>
+                  <td>unset</td>
+                  <td>When set, uploads require <code>Authorization: Bearer &lt;secret&gt;</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="hint">
+            Set plain values under <code>vars</code> in <code>wrangler.jsonc</code>, then redeploy.
+            For the secret use <code>npx wrangler secret put UPLOAD_SECRET</code>; never commit it.
+          </p>
+        </div>
+      </section>
+
+      <section class="band" id="agent">
+        <div class="wrap">
+          <h2>Give this to your AI agent</h2>
+          <p class="sub">
+            Paste this into Claude Code, Cursor, Codex, or any agent with terminal access. It
+            stands FHS up on your own Cloudflare account and verifies it end to end.
+          </p>
+          <div class="prompt">
+            <div class="prompt-head">
+              <span>Agent prompt</span>
+              <button type="button" class="copy" data-copy="agent-prompt">Copy</button>
+            </div>
+            <pre id="agent-prompt"><code>Set up File Handoff Service (FHS) for me and prove it works.
+
+FHS is a zero-retention file relay: one Cloudflare Worker plus one Durable Object class. It accepts a binary upload, returns a single-use handoff URL, streams the bytes back exactly once, and keeps nothing on disk.
+
+1. Check that Node 20.3 or newer is available. If it is not, tell me and stop.
+2. Get the code: git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs, then run npm install inside it.
+3. Read AGENTS.md and wrangler.jsonc. Keep the HANDOFF_VAULT binding, the HandoffVault class, and the v1 migration exactly as they are.
+4. Run npx wrangler whoami. If it is not authenticated, run npx wrangler login and tell me to finish the browser step. Do not ask me for an API token in chat and do not write credentials into the repo.
+5. Run npx wrangler deploy and capture the workers.dev base URL it prints.
+6. Verify end to end with curl: GET the base URL, POST a small text file to /upload, GET the returned handoffUrl and compare the bytes, then GET that URL a second time and confirm HTTP 410.
+7. Report the base URL, the current limits, and the test results. If any step fails, show me the error instead of guessing.</code></pre>
+          </div>
+          <p class="hint">
+            The agent needs a Cloudflare account you are willing to deploy to. It should never
+            need an API token pasted into chat.
+          </p>
+        </div>
+      </section>
+
+      <section class="band" id="faq">
+        <div class="wrap faq">
+          <h2>Questions</h2>
+
+          <h3>What is the File Handoff Service?</h3>
+          <p>
+            FHS is a small Cloudflare Worker plus one Durable Object class that relays a file
+            between two backend systems. Service A uploads it, FHS returns a single-use URL,
+            Service B downloads it once, and the bytes are dropped from volatile memory.
+          </p>
+
+          <h3>Does FHS store my files?</h3>
+          <p>
+            No. Payloads live only in the memory of isolated Durable Objects. FHS never writes to
+            R2, KV, D1, or Durable Object storage, and it does not log payload contents.
+          </p>
+
+          <h3>How long does a handoff last?</h3>
+          <p>
+            60 seconds by default, measured from the moment the upload is sealed. The TTL is
+            configurable from 5 seconds to 3600 seconds with <code>TTL_SECONDS</code>.
+          </p>
+
+          <h3>How large can a file be?</h3>
+          <p>
+            25 MB by default. <code>MAX_PAYLOAD_BYTES</code> can raise it to 90 MB, which stays
+            under the Workers Free and Pro request-body ceiling of 100 MB. Uploads and downloads
+            stream in 8 MB chunks so no single isolate holds the whole file.
+          </p>
+
+          <h3>What happens if the receiving service is down?</h3>
+          <p>
+            The payload expires and the handoff URL returns HTTP 410. FHS is a relay, not a queue:
+            re-upload the file when the consumer is ready.
+          </p>
+
+          <h3>Is FHS HIPAA or GLBA compliant?</h3>
+          <p>
+            FHS is built for zero-retention transit: no durable copy, no payload logging, single
+            use, short TTL. That removes a stored-data surface, but compliance also depends on your
+            agreements, network, endpoints, and legal review. FHS is not a certification.
+          </p>
+
+          <h3>Can I self-host FHS somewhere other than Cloudflare?</h3>
+          <p>
+            It needs long-lived, addressable in-memory state. Cloudflare Workers with Durable
+            Objects provides that. A stateless function platform or an object-storage-only backend
+            cannot hold the bytes without writing them to disk, which defeats the design.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          MIT licensed ·
+          <a href="https://github.com/Spuds0588/File-Handoff-Service-FHS-">Source</a> ·
+          <a href="llms.txt">llms.txt</a>
+        </p>
+        <p>No cookies, no analytics, no third-party requests. Updated 3 November 2026.</p>
+      </div>
+    </footer>
+
+    <script>
+      document.querySelectorAll("[data-copy]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const source = document.getElementById(button.dataset.copy);
+          if (!source) return;
+          try {
+            await navigator.clipboard.writeText(source.innerText.trim());
+            button.textContent = "Copied";
+          } catch {
+            const range = document.createRange();
+            range.selectNodeContents(source);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            button.textContent = "Selected — press Ctrl/Cmd+C";
+          }
+          setTimeout(() => {
+            button.textContent = "Copy";
+          }, 2500);
+        });
+      });
+    </script>
+  </body>
+</html>

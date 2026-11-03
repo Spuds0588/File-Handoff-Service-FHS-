@@ -1,0 +1,65 @@
+# File Handoff Service (FHS)
+
+> FHS is a single-use, zero-retention file relay built on Cloudflare Workers and Durable Objects. An upload returns one handoff URL; the receiver downloads the bytes once and they are dropped from volatile memory. No R2, KV, D1, or Durable Object storage.
+
+- Canonical page: https://spuds0588.github.io/File-Handoff-Service-FHS-/
+- Source: https://github.com/Spuds0588/File-Handoff-Service-FHS-
+- License: MIT
+- Platform: Cloudflare Workers + Durable Objects (free plan works)
+
+## What it does
+
+- `POST /upload` accepts a binary body and returns a random token plus a single-use handoff URL.
+- `GET /retrieve/:token` streams the payload once, then burns the token. Later requests receive HTTP 410.
+- Payloads are split into 8 MB chunks, one Durable Object each, and only ever exist in isolate memory.
+- The TTL clock starts when the upload is sealed: 60 seconds by default, 5 to 3600 configurable.
+- Default payload ceiling is 25 MB; configurable up to 90 MB, under the Workers 100 MB request-body limit.
+
+## What it is for
+
+Backend-to-backend transfer of NPI, PHI, or confidential artifacts where neither system should share storage, credentials, or a third-party data store. It replaces shared buckets, long-lived signed URLs, and "email the file" workflows for short, one-time handoffs.
+
+It is not a file store, a queue, or a workflow engine. It is not durable: if the consumer misses the window, re-upload.
+
+## API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/` | JSON descriptor with live limits |
+| POST | `/upload` | Body is the file; returns 201 with token and handoffUrl |
+| GET | `/retrieve/:token` | Streams the file once (200); afterwards 410 |
+
+Upload response fields: `token`, `handoffUrl`, `contentType`, `totalBytes`, `totalChunks`, `expiresInSeconds`, `expiresAt`.
+
+Status codes: 201 sealed, 400 malformed token, 401 when `UPLOAD_SECRET` is set and the bearer token is missing, 405 wrong method, 410 expired or already consumed, 413 over the payload cap, 500 internal error.
+
+## Configuration
+
+| Variable | Default | Range |
+| --- | --- | --- |
+| `TTL_SECONDS` | 60 | 5 to 3600 |
+| `MAX_PAYLOAD_BYTES` | 26214400 (25 MB) | 1024 to 94371840 (90 MB) |
+| `CHUNK_SIZE_BYTES` | 8388608 (8 MB) | 65536 to 16777216 |
+| `UPLOAD_SECRET` | unset | any string; set with `wrangler secret put` |
+
+## Deploy
+
+```bash
+git clone https://github.com/Spuds0588/File-Handoff-Service-FHS-.git fhs
+cd fhs
+npm install
+npx wrangler login
+npx wrangler deploy
+```
+
+`wrangler deploy` prints the `workers.dev` base URL. The Durable Object binding and the `v1` migration are already in `wrangler.jsonc`, so there are no prompts or manual bindings.
+
+Local verification needs no Cloudflare account:
+
+```bash
+npm test
+```
+
+## Agent instructions
+
+Repository rules, invariants, and development environment cleanup steps live in `AGENTS.md`. Work log and backlog are in `history.md` and `todo.md`.
